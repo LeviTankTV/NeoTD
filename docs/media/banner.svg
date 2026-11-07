@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="NEOTD — 3D tower defense">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#03050c"/>
+      <stop offset="0.55" stop-color="#050912"/>
+      <stop offset="1" stop-color="#0a1020"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff2b4d" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff2b4d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cold" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#9cc9ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#9cc9ff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0v40" fill="none" stroke="#131f36" stroke-width="1"/>
+    </pattern>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="1" fill="#9cc9ff" opacity="0.035"/>
+    </pattern>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <style>
+      .mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+      .label { fill: #5e7390; font-size: 14px; letter-spacing: 4px; }
+      .dim { fill: #9cc9ff; opacity: 0.62; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="420" fill="url(#bg)"/>
+  <rect width="1280" height="420" fill="url(#grid)" opacity="0.55"/>
+  <ellipse cx="985" cy="210" rx="330" ry="220" fill="url(#glow)" opacity="0.5" filter="url(#soft)"/>
+  <ellipse cx="235" cy="330" rx="260" ry="170" fill="url(#cold)" opacity="0.55" filter="url(#soft)"/>
+  <rect width="1280" height="420" fill="url(#scan)"/>
+
+  <g stroke="#182a4a" stroke-width="1" fill="none">
+    <path d="M40 40h44M40 40v44"/>
+    <path d="M1240 40h-44M1240 40v44"/>
+    <path d="M40 380h44M40 380v-44"/>
+    <path d="M1240 380h-44M1240 380v-44"/>
+  </g>
+
+  <g stroke="#ff2b4d" fill="none" stroke-width="1.4" opacity="0.5">
+    <path d="M820 300h90v-52h120v-46h96"/>
+  </g>
+  <g fill="#ff2b4d">
+    <circle cx="820" cy="300" r="3"/>
+    <circle cx="910" cy="248" r="3"/>
+    <circle cx="1030" cy="202" r="3"/>
+  </g>
+
+  <g class="mono">
+    <text x="80" y="96" class="label">SECTOR 07 // CONTAINMENT PROTOCOL</text>
+    <text x="80" y="215" font-size="104" font-weight="700" fill="#e8f1ff" letter-spacing="10">NEOTD</text>
+    <text x="82" y="252" font-size="15" fill="#ff2b4d" letter-spacing="7">TOWER DEFENSE</text>
+    <text x="82" y="286" font-size="15" fill="#9cc9ff" opacity="0.75" letter-spacing="2">15 ВОЛН · 4 ПРОТОКОЛА · ОДИН VESSEL</text>
+
+    <g transform="translate(80,332)">
+      <rect x="0" y="-18" width="120" height="26" fill="none" stroke="#182a4a"/>
+      <text x="60" y="0" font-size="12" fill="#9cc9ff" opacity="0.8" text-anchor="middle" letter-spacing="2">THREE.JS / WEBGL</text>
+      <rect x="132" y="-18" width="86" height="26" fill="none" stroke="#182a4a"/>
+      <text x="175" y="0" font-size="12" fill="#9cc9ff" opacity="0.8" text-anchor="middle" letter-spacing="2">TYPESCRIPT</text>
+      <rect x="230" y="-18" width="64" height="26" fill="none" stroke="#182a4a"/>
+      <text x="262" y="0" font-size="12" fill="#9cc9ff" opacity="0.8" text-anchor="middle" letter-spacing="2">VITE</text>
+    </g>
+
+    <text x="1200" y="372" font-size="13" fill="#5e7390" text-anchor="end" letter-spacing="3">github.com/LeviTankTV/NeoTD</text>
+  </g>
+
+  <g opacity="0.75" class="mono">
+    <text x="1000" y="120" font-size="11" fill="#ff2b4d" letter-spacing="3">SIGNAL STABLE</text>
+    <rect x="1000" y="130" width="180" height="3" fill="#ff2b4d" opacity="0.35"/>
+    <rect x="1000" y="130" width="128" height="3" fill="#ff2b4d"/>
+    <text x="1000" y="160" font-size="11" fill="#5e7390" letter-spacing="2">VESSEL INTEGRITY 100%</text>
+  </g>
+</svg>

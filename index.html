@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#03050c" />
+    <meta
+      name="description"
+      content="NeoTD — 3D tower defense в терминальной эстетике: 15 волн, 4 протокола обороны, процедурная арена."
+    />
+    <title>NEOTD // CONTAINMENT</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+
+    <div class="fx fx-scan" aria-hidden="true"></div>
+    <div class="fx fx-vignette" aria-hidden="true"></div>
+    <div id="flash" aria-hidden="true"></div>
+    <div id="glitch-line" aria-hidden="true"></div>
+
+    <div id="ui" hidden>
+      <header id="topbar">
+        <div class="brand">
+          <span class="brand-sigil">◈</span>
+          <span class="brand-name">NEOTD</span>
+          <span class="brand-sub">// CONTAINMENT</span>
+        </div>
+
+        <div class="top-mid">
+          <div class="stat">
+            <label>WAVE</label>
+            <b id="wave">01 <span>/ 15</span></b>
+          </div>
+          <div class="stat">
+            <label>THREAT</label>
+            <b id="threat" class="threat">DORMANT</b>
+          </div>
+          <div class="stat">
+            <label>PURGED</label>
+            <b id="purged">0</b>
+          </div>
+        </div>
+
+        <div class="top-right">
+          <div class="vessel-stat">
+            <div class="vessel-head">
+              <label>VESSEL INTEGRITY</label>
+              <b id="integrity">100%</b>
+            </div>
+            <div class="integrity-bar"><i id="integrity-bar" style="width: 100%"></i></div>
+          </div>
+          <div class="stat data-stat">
+            <label>DATA</label>
+            <b id="data">240</b>
+          </div>
+          <div class="top-actions">
+            <button id="speed-btn" class="chip" type="button" title="Скорость симуляции">1×</button>
+            <button id="sound-btn" class="chip" type="button" title="Звук">SND</button>
+          </div>
+        </div>
+      </header>
+
+      <aside id="rail" class="panel">
+        <div class="panel-head"><span>PROTOCOLS</span><em>[1–4]</em></div>
+        <div id="tower-list"></div>
+        <div class="rail-note">
+          <span>ЛКМ по сетке — разместить</span>
+          <span>ЛКМ по башне — выбрать</span>
+          <span>перетаскивание — обзор</span>
+        </div>
+      </aside>
+
+      <aside id="inspector" class="panel">
+        <div class="panel-head"><span id="inspect-title">WAVE INTEL</span><em id="inspect-tag">NEXT</em></div>
+        <div id="inspect-body"></div>
+      </aside>
+
+      <div id="log"></div>
+
+      <div id="wave-dock">
+        <div id="wave-meta">Готов к запуску</div>
+        <button id="wave-btn" type="button">
+          <span>INITIATE WAVE</span>
+          <em id="wave-btn-sub">READY</em>
+        </button>
+        <div class="wave-progress"><i id="wave-progress"></i></div>
+      </div>
+
+      <div id="hint-bar">
+        <span>DRAG — обзор</span>
+        <span>WHEEL — зум</span>
+        <span>ESC — отмена</span>
+        <span>U — апгрейд</span>
+        <span>S — продать</span>
+      </div>
+    </div>
+
+    <section id="title-screen" class="screen">
+      <canvas id="glyph-canvas"></canvas>
+      <div class="title-inner">
+        <div class="title-meta">
+          <span>SIGNAL STABLE</span>
+          <span>NODE 07</span>
+          <span id="title-clock">00:00:00</span>
+        </div>
+
+        <h1 class="title-logo">NEOTD</h1>
+        <div class="title-sub"><span>TOWER DEFENSE</span><em>//</em>ПРОТОКОЛ СДЕРЖИВАНИЯ</div>
+
+        <p class="title-lede">
+          VESSEL дрейфует в пустоте. По сетке идут фрагменты.<br />
+          Ты — оператор. У тебя есть протоколы и ровно столько времени,
+          сколько выдержит ядро.
+        </p>
+
+        <button id="start-btn" class="primary" type="button">
+          <span>ИНИЦИАЛИЗИРОВАТЬ</span>
+          <em>ENTER</em>
+        </button>
+
+        <div class="title-grid">
+          <div>
+            <label>ЦЕЛЬ</label>
+            <p>Не дать фрагментам дойти до VESSEL. Пятнадцать волн.</p>
+          </div>
+          <div>
+            <label>РЕСУРС</label>
+            <p>DATA дают уничтоженные фрагменты и завершённые волны.</p>
+          </div>
+          <div>
+            <label>УПРАВЛЕНИЕ</label>
+            <p>1–4 — протокол, ЛКМ — разместить, U — апгрейд, S — продать.</p>
+          </div>
+        </div>
+
+        <div class="title-foot">
+          <span>BEST // <b id="best-wave">—</b></span>
+          <span>BUILD 0.1 // <em>NO SIGNAL</em></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="end-screen" class="screen" hidden>
+      <canvas id="end-glyph"></canvas>
+      <div class="end-inner">
+        <div class="end-kicker" id="end-kicker">CONTAINMENT FAILED</div>
+        <h2 id="end-title">SIGNAL LOST</h2>
+        <p id="end-text">VESSEL потерял целостность. Он снова остался один.</p>
+        <div class="end-stats" id="end-stats"></div>
+        <button id="restart-btn" class="primary" type="button">
+          <span>ПЕРЕЗАПУСТИТЬ</span>
+          <em>R</em>
+        </button>
+        <button id="menu-btn" class="ghost" type="button">В МЕНЮ</button>
+      </div>
+    </section>
+  </body>
+</html>
