@@ -856,34 +856,36 @@ function formatTime(seconds: number): string {
 
 requestAnimationFrame(frame);
 
-Object.defineProperty(window, '__neotd', {
-  value: {
-    get game() {
-      return game;
+if (import.meta.env.DEV) {
+  Object.defineProperty(window, '__neotd', {
+    value: {
+      get game() {
+        return game;
+      },
+      get map() {
+        return map;
+      },
+      view,
+      selection,
+      profile,
+      archive,
+      tutorial,
+      start: startRun,
+      restart,
+      end: showEnd,
+      toggleTopView,
+      setLang: switchLang,
+      advance(seconds: number) {
+        let remaining = seconds;
+        while (remaining > 0) {
+          const step = Math.min(remaining, 1 / 60);
+          game.update(step);
+          remaining -= step;
+        }
+        hud?.refresh(true);
+        tutorial?.update();
+      },
     },
-    get map() {
-      return map;
-    },
-    view,
-    selection,
-    profile,
-    archive,
-    tutorial,
-    start: startRun,
-    restart,
-    end: showEnd,
-    toggleTopView,
-    setLang: switchLang,
-    advance(seconds: number) {
-      let remaining = seconds;
-      while (remaining > 0) {
-        const step = Math.min(remaining, 1 / 60);
-        game.update(step);
-        remaining -= step;
-      }
-      hud?.refresh(true);
-      tutorial?.update();
-    },
-  },
-});
+  });
+}
 
