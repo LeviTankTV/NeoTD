@@ -9,6 +9,8 @@ import {
   ENEMY_DEFS,
   PREP_WINDOW,
   REWARDS,
+  ROGUE_PRESSURE,
+  ROGUE_REWARD_EVERY,
   ROGUE_WAVE_MODS,
   SELL_RATE,
   START_INTEGRITY,
@@ -349,6 +351,14 @@ export class Game {
       tf(L('МОДУЛЬ ПРИНЯТ: {name}', 'MODULE ACCEPTED: {name}'), { name: tr(reward.name) }),
       'ok',
     );
+    if (this.mode === 'rogue') {
+      this.hooks.log(
+        tf(L('ДАВЛЕНИЕ +{pct}%: враги крепче', 'PRESSURE +{pct}%: enemies harden'), {
+          pct: Math.round(this.pressure * 100),
+        }),
+        'warn',
+      );
+    }
     this.hooks.sfx('upgrade');
     this.applySynergy(reward.tag);
     this.hooks.changed();
@@ -684,6 +694,10 @@ export class Game {
     return this.waveMods.some((mod) => mod.id === id);
   }
 
+  get pressure(): number {
+    return this.mode === 'rogue' ? this.stats.rewards * ROGUE_PRESSURE : 0;
+  }
+
   private earn(amount: number): void {
     this.money += amount;
     this.stats.dataEarned += amount;
@@ -819,6 +833,7 @@ export class Game {
       hpScale(this.wave) *
       this.diff.hpMul *
       this.enemyHpMul *
+      (1 + this.pressure) *
       (options.hpFactor ?? 1) *
       reinforced *
       cursed;
@@ -1286,6 +1301,7 @@ export class Game {
       return;
     }
 
+    const cleared = this.wave;
     this.wave++;
     this.stats.maxWave = Math.max(this.stats.maxWave, this.wave);
     this.phase = 'prep';
@@ -1293,7 +1309,7 @@ export class Game {
     this.waveTotal = 0;
     this.waveMods = this.mode === 'rogue' ? this.rollWaveMod() : [];
 
-    if (this.mode === 'rogue') {
+    if (this.mode === 'rogue' && cleared % ROGUE_REWARD_EVERY === 0) {
       this.pendingRewards = this.rollRewards();
       this.hooks.rewards?.(this.pendingRewards);
     }

@@ -164,8 +164,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     id: 'rogue-stack',
     category: 'modes',
     name: L('СТЕК МОДУЛЕЙ', 'MODULE STACK'),
-    desc: L('Взять 15 модулей за один забег.', 'Take 15 modules in a single run.'),
-    target: 15,
+    desc: L('Взять 7 модулей за один забег.', 'Take 7 modules in a single run.'),
+    target: 7,
     value: (p) => p.stats.bestRogueModules,
   },
   {

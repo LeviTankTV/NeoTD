@@ -206,6 +206,14 @@ export class Hud {
         ? tf(L('осталось {count} целей', '{count} targets left'), { count: game.waveRemaining })
         : '';
 
+    const pressure = Math.round(game.pressure * 100);
+    if (pressure > 0) {
+      const label = tf(L('давление +{pct}%', 'pressure +{pct}%'), { pct: pressure });
+      this.waveMeta.textContent = this.waveMeta.textContent
+        ? `${this.waveMeta.textContent} · ${label}`
+        : label;
+    }
+
     this.waveProgress.style.width = `${Math.round(game.waveProgress * 100)}%`;
     this.undoBtn.disabled = !game.canUndo;
     this.undoBtn.classList.toggle('on', game.canUndo);

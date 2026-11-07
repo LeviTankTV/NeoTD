@@ -823,6 +823,9 @@ export const REWARDS: RewardDef[] = [
 
 export const hpScale = (wave: number): number => 1 + (wave - 1) * 0.26;
 
+export const ROGUE_REWARD_EVERY = 2;
+export const ROGUE_PRESSURE = 0.05;
+
 export const upgradeCost = (base: number, level: number): number =>
   Math.round(base * (0.9 + (level - 1) * 0.45));
 
