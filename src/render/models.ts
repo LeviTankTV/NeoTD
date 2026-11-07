@@ -323,7 +323,78 @@ export function createEnemyModel(kind: EnemyKind): EnemyModel {
     group.add(crown);
   }
 
-  const barWidth = kind === 'face' ? 2.2 : kind === 'gate' ? 1.25 : 0.85;
+  if (kind === 'shield') {
+    const core = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), glow(COLORS.cyan, 1.8));
+    group.add(core);
+
+    const frame = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.62, 1),
+      new THREE.MeshBasicMaterial({ color: COLORS.cyan, wireframe: true, transparent: true, opacity: 0.55 }),
+    );
+    group.add(frame);
+  }
+
+  if (kind === 'flyer') {
+    const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), glow(COLORS.mint, 2));
+    body.rotation.z = Math.PI / 4;
+    group.add(body);
+
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.42, 0.014, 4, 24, Math.PI),
+        new THREE.MeshBasicMaterial({ color: COLORS.mint, transparent: true, opacity: 0.6 }),
+      );
+      wing.position.set(side * 0.38, 0.05, 0);
+      wing.rotation.y = Math.PI / 2;
+      wing.rotation.z = side * 0.5;
+      wing.name = `wing-${side}`;
+      group.add(wing);
+    }
+  }
+
+  if (kind === 'splitter') {
+    const body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), glow(COLORS.violet, 1.6));
+    group.add(body);
+
+    for (let i = 0; i < 3; i++) {
+      const node = new THREE.Mesh(
+        new THREE.TetrahedronGeometry(0.15, 0),
+        new THREE.MeshBasicMaterial({ color: COLORS.violet, transparent: true, opacity: 0.75 }),
+      );
+      node.position.set(Math.cos(i * 2.1) * 0.6, Math.sin(i * 1.4) * 0.4, Math.sin(i * 2.1) * 0.6);
+      group.add(node);
+    }
+  }
+
+  if (kind === 'phantom') {
+    const body = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.44, 0),
+      new THREE.MeshBasicMaterial({ color: COLORS.dim, wireframe: true, transparent: true, opacity: 0.7 }),
+    );
+    group.add(body);
+
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), glow(0x2e4c78, 0.8));
+    group.add(core);
+  }
+
+  if (kind === 'face' || kind === 'shield') {
+    const shell = new THREE.Mesh(
+      new THREE.SphereGeometry(kind === 'face' ? 1.2 : 0.82, 18, 14),
+      new THREE.MeshBasicMaterial({
+        color: COLORS.cyan,
+        transparent: true,
+        opacity: 0.9,
+        wireframe: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    shell.name = 'shield-shell';
+    shell.visible = false;
+    group.add(shell);
+  }
+
+  const barWidth = kind === 'face' ? 2.2 : kind === 'gate' || kind === 'splitter' ? 1.25 : 0.85;
   const { bar, fill } = makeBar(kind === 'face' ? COLORS.amber : COLORS.red, barWidth);
   bar.position.y = 1.16;
   fill.position.y = 1.16;
@@ -393,7 +464,6 @@ export function createCoreModel(): CoreModel {
   return { group, core, rings, light };
 }
 
-/** Подсветка клетки под курсором и кольцо радиуса. */
 export class CellHighlight {
   readonly group = new THREE.Group();
   private readonly box: THREE.LineSegments;

@@ -142,7 +142,6 @@ export class Effects {
     });
   }
 
-  /** Разлетающиеся обломки-линии для «стирания» врага. */
   shards(position: THREE.Vector3, color: number, count = 8): void {
     const group = new THREE.Group();
     const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false });

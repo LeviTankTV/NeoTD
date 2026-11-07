@@ -1,9 +1,16 @@
 import './style.css';
 import * as THREE from 'three';
-import { TOTAL_WAVES, TOWER_DEFS, TOWER_ORDER } from './game/constants';
-import { Game, type GameHooks } from './game/game';
+import {
+  DIFFICULTIES,
+  MAPS,
+  TOTAL_WAVES,
+  TOWER_DEFS,
+  TOWER_ORDER,
+  type MapDef,
+} from './game/constants';
+import { Game, type GameHooks, type GameOptions } from './game/game';
 import { GameMap } from './game/map';
-import type { Cell, Phase, TowerKind } from './game/types';
+import type { Cell, DifficultyId, ModeId, Phase, RewardDef, TowerKind } from './game/types';
 import { CellHighlight } from './render/models';
 import { SceneView } from './render/scene';
 import { Sound } from './ui/audio';
@@ -17,19 +24,29 @@ function el<T extends HTMLElement>(id: string): T {
 }
 
 const BEST_KEY = 'neotd.best';
+const ENDLESS_KEY = 'neotd.endless.best';
 
 const ui = el('ui');
 const titleScreen = el('title-screen');
 const endScreen = el('end-screen');
+const rewardScreen = el('reward-screen');
+const rewardCards = el('reward-cards');
 const startBtn = el<HTMLButtonElement>('start-btn');
 const restartBtn = el<HTMLButtonElement>('restart-btn');
+const endlessBtn = el<HTMLButtonElement>('endless-btn');
 const menuBtn = el<HTMLButtonElement>('menu-btn');
 const flashEl = el('flash');
 const glitchEl = el('glitch-line');
 const endGlyph = el<HTMLCanvasElement>('end-glyph');
 const titleGlyph = el<HTMLCanvasElement>('glyph-canvas');
 
-const map = new GameMap();
+const selection: { mapId: string; mode: ModeId; difficulty: DifficultyId } = {
+  mapId: MAPS[0].id,
+  mode: 'campaign',
+  difficulty: 'standard',
+};
+
+let map = new GameMap(MAPS[0]);
 const canvas = el<HTMLCanvasElement>('stage');
 const view = new SceneView(canvas, map);
 const sound = new Sound();
@@ -40,6 +57,7 @@ let game: Game;
 let hud: Hud | undefined;
 let speed = 1;
 let endShown = false;
+let topView = false;
 let stopRain: (() => void) | null = null;
 let flashTimer = 0;
 
@@ -57,8 +75,15 @@ const actions: HudActions = {
     sound.setEnabled(!sound.enabled);
     hud?.setSound(sound.enabled);
   },
+  toggleView: () => toggleTopView(),
+  undo: () => game.undo(),
   upgrade: () => game.upgradeSelected(),
   sell: () => game.sellSelected(),
+  move: () => game.beginMove(),
+  chooseBranch: (branch) => game.chooseBranch(branch),
+  setPriority: (priority) => game.setPriority(priority),
+  massUpgrade: (kind) => game.upgradeAll(kind),
+  massSell: (kind) => game.sellAll(kind),
   selectKind: (kind: TowerKind) => {
     sound.init();
     game.setKind(game.selectedKind === kind ? null : kind);
@@ -75,13 +100,21 @@ const hooks: GameHooks = {
   coreHit: () => flashScreen(),
   changed: () => hud?.refresh(),
   sfx: (name) => sound.play(name),
+  rewards: (options) => showRewards(options),
 };
 
-function createGame(): void {
-  game = new Game(view.scene, view.effects, hooks, map);
+function optionsFor(mode: ModeId, difficulty: DifficultyId): GameOptions {
+  return { mode, difficulty };
+}
+
+function createGame(nextMap: GameMap, options: GameOptions): void {
+  if (game) game.dispose();
+  map = nextMap;
+  game = new Game(view.scene, view.effects, hooks, map, options);
   hud = new Hud(game, actions);
   hud.setSpeed(speed);
   hud.setSound(sound.enabled);
+  hud.setTopView(topView);
 }
 
 function flashScreen(): void {
@@ -95,6 +128,14 @@ function flashScreen(): void {
 }
 
 function startRun(): void {
+  const def = MAPS.find((item) => item.id === selection.mapId) ?? MAPS[0];
+  const nextMap = new GameMap(def);
+
+  if (map.def.id !== def.id) {
+    view.setMap(nextMap);
+  }
+  map = nextMap;
+
   if (!titleScreen.hidden) {
     titleScreen.hidden = true;
     sound.init();
@@ -102,10 +143,14 @@ function startRun(): void {
     stopRain = null;
   }
 
+  createGame(map, optionsFor(selection.mode, selection.difficulty));
+  rewardScreen.hidden = true;
+  endShown = false;
   ui.hidden = false;
+
   hud?.refresh(true);
-  hud?.log('SECTOR 07 // протокол сдерживания активен');
-  hud?.log('VESSEL ONLINE // оператор подключён', 'ok');
+  hud?.log(`ARENA ${def.name} · ${selection.mode.toUpperCase()}`, 'sys');
+  hud?.log('VESSEL ONLINE: оператор подключён', 'ok');
 }
 
 function showEnd(won: boolean): void {
@@ -114,15 +159,24 @@ function showEnd(won: boolean): void {
 
   const minutes = Math.floor(game.time / 60);
   const seconds = Math.floor(game.time % 60);
+  const endless = game.mode === 'endless';
 
-  el('end-kicker').textContent = won ? 'CONTAINMENT COMPLETE' : 'CONTAINMENT FAILED';
+  el('end-kicker').textContent = won
+    ? 'CONTAINMENT COMPLETE'
+    : endless
+      ? 'SIGNAL LOST: ENDLESS'
+      : 'CONTAINMENT FAILED';
   el('end-title').textContent = won ? 'SIGNAL HELD' : 'SIGNAL LOST';
   el('end-text').textContent = won
-    ? 'Пятнадцать волн. Ядро цело. Он снова остался один — но в этот раз ты не отступил.'
-    : 'VESSEL потерял целостность. Он снова остался один. Протокол можно перезапустить.';
+    ? `${TOTAL_WAVES} волн. Ядро цело. Он снова остался один — но в этот раз ты не отступил.`
+    : endless
+      ? `Бесконечный протокол оборван на волне ${game.wave}. Дальше — только новый заход.`
+      : 'VESSEL потерял целостность. Он снова остался один. Протокол можно перезапустить.';
 
   el('end-stats').innerHTML = `
-    <div><label>WAVE</label><b>${game.wave.toString().padStart(2, '0')} / ${TOTAL_WAVES}</b></div>
+    <div><label>WAVE</label><b>${game.wave.toString().padStart(2, '0')} / ${
+      Number.isFinite(game.totalWaves) ? game.totalWaves : '∞'
+    }</b></div>
     <div><label>PURGED</label><b>${game.kills}</b></div>
     <div><label>TIME</label><b>${minutes.toString().padStart(2, '0')}:${seconds
       .toString()
@@ -132,16 +186,22 @@ function showEnd(won: boolean): void {
 
   endScreen.querySelector('.end-inner')?.classList.toggle('good', won);
   endScreen.hidden = false;
+  endlessBtn.hidden = endless;
 
   const best = Number(localStorage.getItem(BEST_KEY) ?? '0');
   const reached = won ? TOTAL_WAVES : Math.max(1, game.wave);
   if (reached > best) localStorage.setItem(BEST_KEY, String(reached));
 
+  if (endless) {
+    const bestEndless = Number(localStorage.getItem(ENDLESS_KEY) ?? '0');
+    if (game.wave > bestEndless) localStorage.setItem(ENDLESS_KEY, String(game.wave));
+  }
+
   stopRain?.();
   stopRain = startGlyphRain(endGlyph);
 }
 
-function restart(): void {
+function resetRun(options: GameOptions): void {
   if (stopRain) {
     stopRain();
     stopRain = null;
@@ -149,23 +209,138 @@ function restart(): void {
 
   endScreen.hidden = true;
   endShown = false;
+  topView = false;
+  view.controls.minPolarAngle = 0.28;
+  view.controls.maxPolarAngle = 1.22;
 
   game.dispose();
   view.effects.reset();
   view.setIntegrity(100);
-  createGame();
+  createGame(map, options);
   ui.hidden = false;
 
   hud?.refresh(true);
-  hud?.log('PROTOCOL RESTART // сброс сектора');
-  hud?.log('VESSEL ONLINE // оператор подключён', 'ok');
+  hud?.log('PROTOCOL RESTART: сброс сектора');
+  hud?.log('VESSEL ONLINE: оператор подключён', 'ok');
+}
+
+function restart(): void {
+  resetRun(optionsFor(game.mode, game.difficulty));
+}
+
+function startEndless(): void {
+  resetRun(optionsFor('endless', game.difficulty));
+  hud?.log('ENDLESS PROTOCOL: волны не заканчиваются', 'warn');
+}
+
+function showRewards(options: RewardDef[]): void {
+  rewardCards.innerHTML = '';
+  for (const reward of options) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'reward-card';
+    card.innerHTML = `<span class="reward-tag">${reward.tag}</span>
+      <b>${reward.name}</b>
+      <em>${reward.desc}</em>`;
+    card.addEventListener('click', () => {
+      game.applyReward(reward.id);
+      rewardScreen.hidden = true;
+      hud?.refresh(true);
+    });
+    rewardCards.appendChild(card);
+  }
+  rewardScreen.hidden = false;
+}
+
+function toggleTopView(): void {
+  topView = !topView;
+  const controls = view.controls;
+
+  if (topView) {
+    controls.minPolarAngle = 0.02;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    view.camera.position.set(0, 52, 0.01);
+    controls.target.set(0, 0, 0);
+  } else {
+    controls.minPolarAngle = 0.28;
+    controls.maxPolarAngle = 1.22;
+    view.camera.position.set(16, 13, 24);
+    controls.target.set(0, 0.6, 1.5);
+  }
+
+  controls.update();
+  hud?.setTopView(topView);
+}
+
+function buildSelectors(): void {
+  const mapBox = el('map-select');
+  const modeBox = el('mode-select');
+  const diffBox = el('difficulty-select');
+
+  const make = (
+    box: HTMLElement,
+    items: Array<{ id: string; name: string; title?: string }>,
+    active: string,
+    onPick: (id: string) => void,
+  ) => {
+    box.innerHTML = '';
+    for (const item of items) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `seg-btn ${item.id === active ? 'on' : ''}`;
+      button.textContent = item.name;
+      if (item.title) button.title = item.title;
+      button.dataset.id = item.id;
+      button.addEventListener('click', () => {
+        box.querySelectorAll('.seg-btn').forEach((node) => node.classList.remove('on'));
+        button.classList.add('on');
+        onPick(item.id);
+      });
+      box.appendChild(button);
+    }
+  };
+
+  make(
+    mapBox,
+    MAPS.map((item) => ({ id: item.id, name: item.name, title: item.sub })),
+    selection.mapId,
+    (id) => {
+      selection.mapId = id;
+      const def: MapDef = MAPS.find((item) => item.id === id) ?? MAPS[0];
+      const nextMap = new GameMap(def);
+      map = nextMap;
+      view.setMap(nextMap);
+    },
+  );
+
+  make(
+    modeBox,
+    [
+      { id: 'campaign', name: 'КАМПАНИЯ', title: '15 волн' },
+      { id: 'endless', name: 'БЕСКОНЕЧНЫЙ', title: 'волны без конца' },
+      { id: 'rogue', name: 'ROGUE', title: 'модификаторы и награды' },
+    ],
+    selection.mode,
+    (id) => {
+      selection.mode = id as ModeId;
+      selection.mapId = selection.mapId;
+    },
+  );
+
+  make(
+    diffBox,
+    DIFFICULTIES.map((item) => ({ id: item.id, name: item.name, title: item.sub })),
+    selection.difficulty,
+    (id) => {
+      selection.difficulty = id as DifficultyId;
+    },
+  );
 }
 
 startBtn.addEventListener('click', startRun);
 restartBtn.addEventListener('click', restart);
+endlessBtn.addEventListener('click', startEndless);
 menuBtn.addEventListener('click', () => window.location.reload());
-
-/* ------------------------------------------------------- pointer input */
 
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -196,11 +371,14 @@ function updateHover(cell: Cell | null): void {
   const center = map.cellCenter(cell.x, cell.z);
   const tower = game.towerAt(cell);
 
-  if (game.selectedKind) {
+  if (game.moving) {
+    const free = map.isBuildable(cell.x, cell.z) && !tower;
+    highlight.show(center.x, center.z, free, game.moving.range);
+  } else if (game.selectedKind) {
     const def = TOWER_DEFS[game.selectedKind];
     highlight.show(center.x, center.z, game.canPlace(game.selectedKind, cell), def.range);
   } else if (tower) {
-    highlight.show(center.x, center.z, true, tower.range);
+    highlight.show(center.x, center.z, true, game.statsFor(tower).range);
   } else {
     highlight.show(center.x, center.z, true);
   }
@@ -231,6 +409,12 @@ canvas.addEventListener('pointerup', (event) => {
   updateHover(cell);
   const tower = game.towerAt(cell);
 
+  if (game.moving) {
+    game.finishMove(cell);
+    updateHover(cell);
+    return;
+  }
+
   if (game.selectedKind) {
     if (tower) game.selectTower(cell);
     else game.place(game.selectedKind, cell);
@@ -247,8 +431,6 @@ canvas.addEventListener('pointerleave', () => {
   highlight.hide();
 });
 
-/* ------------------------------------------------------- keyboard */
-
 window.addEventListener('keydown', (event) => {
   if (!titleScreen.hidden) {
     if (event.code === 'Enter' || event.code === 'Space') {
@@ -263,6 +445,14 @@ window.addEventListener('keydown', (event) => {
       event.preventDefault();
       restart();
     }
+    return;
+  }
+
+  if (!rewardScreen.hidden) return;
+
+  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyZ') {
+    event.preventDefault();
+    game.undo();
     return;
   }
 
@@ -288,6 +478,12 @@ window.addEventListener('keydown', (event) => {
     case 'KeyS':
       game.sellSelected();
       break;
+    case 'KeyG':
+      game.beginMove();
+      break;
+    case 'KeyV':
+      toggleTopView();
+      break;
     case 'KeyM':
       actions.toggleSound();
       break;
@@ -301,9 +497,8 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-/* ------------------------------------------------------- boot */
-
-createGame();
+buildSelectors();
+createGame(map, optionsFor(selection.mode, selection.difficulty));
 stopRain = startGlyphRain(titleGlyph);
 
 const best = Number(localStorage.getItem(BEST_KEY) ?? '0');
@@ -333,6 +528,9 @@ function frame(): void {
     }
   }
 
+  const bossAlive = game.enemies.some((enemy) => enemy.kind === 'face');
+  sound.setIntensity(game.phase === 'wave' ? (bossAlive ? 1 : 0.75) : 0.3);
+
   view.setIntegrity(game.integrity);
   hud?.refresh();
   view.render(dt);
@@ -341,17 +539,20 @@ function frame(): void {
 
 requestAnimationFrame(frame);
 
-/* Отладочный доступ для автотестов. */
 Object.defineProperty(window, '__neotd', {
   value: {
     get game() {
       return game;
     },
+    get map() {
+      return map;
+    },
     view,
-    map,
+    selection,
     start: startRun,
     restart,
     end: showEnd,
+    toggleTopView,
     advance(seconds: number) {
       let remaining = seconds;
       while (remaining > 0) {

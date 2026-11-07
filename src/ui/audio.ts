@@ -8,6 +8,9 @@ export class Sound {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
+  private padFilter: BiquadFilterNode | null = null;
+  private padGain: GainNode | null = null;
+  private intensity = -1;
 
   init(): void {
     if (this.ctx) {
@@ -30,6 +33,18 @@ export class Sound {
     this.noise = buffer;
 
     this.startAmbient();
+    this.startMusic();
+  }
+
+  setIntensity(value: number): void {
+    if (!this.ctx || !this.padFilter || !this.padGain) return;
+    const target = Math.max(0, Math.min(1, value));
+    if (Math.abs(target - this.intensity) < 0.02) return;
+    this.intensity = target;
+
+    const now = this.ctx.currentTime;
+    this.padFilter.frequency.setTargetAtTime(420 + target * 780, now, 0.6);
+    this.padGain.gain.setTargetAtTime(0.03 + target * 0.03, now, 0.8);
   }
 
   setEnabled(value: boolean): void {
@@ -124,6 +139,48 @@ export class Sound {
     oscA.start();
     oscB.start();
     lfo.start();
+  }
+
+  private startMusic(): void {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+
+    const padGain = ctx.createGain();
+    padGain.gain.value = 0.03;
+    padGain.connect(this.master);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 420;
+    filter.Q.value = 1.4;
+    filter.connect(padGain);
+
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.045;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 160;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(filter.frequency);
+    lfo.start();
+
+    const chord = [110, 130.81, 164.81, 246.94];
+    chord.forEach((freq, index) => {
+      for (const detune of [-4, 4]) {
+        const osc = ctx.createOscillator();
+        osc.type = index === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        osc.detune.value = detune;
+
+        const gain = ctx.createGain();
+        gain.gain.value = index === 0 ? 0.5 : 0.18;
+        osc.connect(gain);
+        gain.connect(filter);
+        osc.start();
+      }
+    });
+
+    this.padGain = padGain;
+    this.padFilter = filter;
   }
 
   private blip(

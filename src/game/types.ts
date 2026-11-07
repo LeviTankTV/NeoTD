@@ -1,7 +1,32 @@
 import type * as THREE from 'three';
 
 export type TowerKind = 'sentry' | 'pulse' | 'snare' | 'rail';
-export type EnemyKind = 'fragment' | 'glitch' | 'gate' | 'face';
+
+export type EnemyKind =
+  | 'fragment'
+  | 'glitch'
+  | 'gate'
+  | 'face'
+  | 'shield'
+  | 'flyer'
+  | 'splitter'
+  | 'phantom';
+
+export type BranchId =
+  | 'sentry-burst'
+  | 'sentry-pierce'
+  | 'pulse-overload'
+  | 'pulse-singularity'
+  | 'snare-cryo'
+  | 'snare-corrode'
+  | 'rail-ap'
+  | 'rail-chain';
+
+export type TargetPriority = 'first' | 'last' | 'strong' | 'weak';
+
+export type DifficultyId = 'calm' | 'standard' | 'hardcore';
+export type ModeId = 'campaign' | 'endless' | 'rogue';
+
 export type Phase = 'prep' | 'wave' | 'won' | 'lost';
 export type LogKind = 'sys' | 'ok' | 'alert' | 'warn';
 export type SfxName =
@@ -29,12 +54,29 @@ export interface TowerDef {
   range: number;
   color: number;
   desc: string;
-  /** Радиус взрыва для PULSE. */
+
   splash?: number;
-  /** Доля замедления для SNARE. */
+
   slow?: number;
-  /** Урон в секунду для SNARE. */
+
   dps?: number;
+}
+
+export interface BranchDef {
+  id: BranchId;
+  kind: TowerKind;
+  name: string;
+  role: string;
+  desc: string;
+  damageMul?: number;
+  cooldownMul?: number;
+  rangeMul?: number;
+  splashMul?: number;
+  slowAdd?: number;
+  dpsMul?: number;
+  armorPierce?: number;
+
+  chainMul?: number;
 }
 
 export interface EnemyDef {
@@ -47,6 +89,15 @@ export interface EnemyDef {
   coreDamage: number;
   armor: number;
   scale: number;
+
+  shield?: number;
+
+  flying?: boolean;
+
+  splits?: number;
+
+  cloak?: boolean;
+  tags?: string[];
 }
 
 export interface WaveGroup {
@@ -63,8 +114,13 @@ export interface Enemy {
   kind: EnemyKind;
   hp: number;
   maxHp: number;
+  shield: number;
+  maxShield: number;
+  shieldTimer: number;
   speed: number;
   distance: number;
+  routeLength: number;
+  flying: boolean;
   reward: number;
   coreDamage: number;
   armor: number;
@@ -72,6 +128,10 @@ export interface Enemy {
   flash: number;
   phase: number;
   slow: number;
+  cloakTimer: number;
+  cloaked: boolean;
+  canCloak: boolean;
+  enraged: boolean;
   group: THREE.Group;
   bar: THREE.Sprite;
   barFill: THREE.Sprite;
@@ -82,6 +142,8 @@ export interface Tower {
   kind: TowerKind;
   cell: { x: number; z: number };
   level: number;
+  branch: BranchId | null;
+  priority: TargetPriority;
   cooldown: number;
   tick: number;
   spent: number;
@@ -90,6 +152,13 @@ export interface Tower {
   group: THREE.Group;
   head: THREE.Object3D | null;
   aura: THREE.Object3D | null;
+}
+
+export interface RewardDef {
+  id: string;
+  name: string;
+  desc: string;
+  tag: string;
 }
 
 export interface Cell {

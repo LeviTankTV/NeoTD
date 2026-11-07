@@ -1,24 +1,36 @@
 import {
+  BRANCHES,
   ENEMY_DEFS,
-  TOTAL_WAVES,
+  TOWER_BRANCHES,
   TOWER_DEFS,
   TOWER_ORDER,
-  WAVES,
-  damageAt,
-  rangeAt,
   upgradeCost,
 } from '../game/constants';
 import type { Game } from '../game/game';
-import type { EnemyKind, LogKind, TowerKind } from '../game/types';
+import type { BranchId, EnemyKind, LogKind, TargetPriority, TowerKind } from '../game/types';
 
 export interface HudActions {
   startWave(): void;
   cycleSpeed(): void;
   toggleSound(): void;
+  toggleView(): void;
+  undo(): void;
   upgrade(): void;
   sell(): void;
+  move(): void;
+  chooseBranch(branch: BranchId): void;
+  setPriority(priority: TargetPriority): void;
+  massUpgrade(kind: TowerKind): void;
+  massSell(kind: TowerKind): void;
   selectKind(kind: TowerKind): void;
 }
+
+const PRIORITIES: Array<{ id: TargetPriority; label: string; title: string }> = [
+  { id: 'first', label: '1st', title: 'ближайший к ядру' },
+  { id: 'last', label: 'last', title: 'самый дальний' },
+  { id: 'strong', label: 'HP+', title: 'самый прочный' },
+  { id: 'weak', label: 'HP−', title: 'самый слабый' },
+];
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -43,9 +55,13 @@ export class Hud {
   private readonly inspectBody = el('inspect-body');
   private readonly speedBtn = el<HTMLButtonElement>('speed-btn');
   private readonly soundBtn = el<HTMLButtonElement>('sound-btn');
+  private readonly undoBtn = el<HTMLButtonElement>('undo-btn');
+  private readonly viewBtn = el<HTMLButtonElement>('view-btn');
 
   private readonly cards = new Map<TowerKind, HTMLButtonElement>();
   private inspectorKey = '';
+  private armedSellAll: TowerKind | null = null;
+  private armTimer = 0;
 
   constructor(
     private readonly game: Game,
@@ -53,16 +69,25 @@ export class Hud {
   ) {
     this.buildCards();
 
-    this.waveBtn.addEventListener('click', () => this.actions.startWave());
-    this.speedBtn.addEventListener('click', () => this.actions.cycleSpeed());
-    this.soundBtn.addEventListener('click', () => this.actions.toggleSound());
+    this.waveBtn.onclick = () => this.actions.startWave();
+    this.speedBtn.onclick = () => this.actions.cycleSpeed();
+    this.soundBtn.onclick = () => this.actions.toggleSound();
+    this.undoBtn.onclick = () => this.actions.undo();
+    this.viewBtn.onclick = () => this.actions.toggleView();
 
-    this.inspectBody.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
+    this.inspectBody.onclick = (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
+      if (!target) return;
+
+      const action = target.dataset.action;
       if (action === 'upgrade') this.actions.upgrade();
       if (action === 'sell') this.actions.sell();
-    });
+      if (action === 'move') this.actions.move();
+      if (action === 'branch') this.actions.chooseBranch(target.dataset.branch as BranchId);
+      if (action === 'priority') this.actions.setPriority(target.dataset.priority as TargetPriority);
+      if (action === 'mass-upgrade') this.actions.massUpgrade(target.dataset.kind as TowerKind);
+      if (action === 'mass-sell') this.handleMassSell(target.dataset.kind as TowerKind);
+    };
 
     this.refresh(true);
   }
@@ -70,6 +95,7 @@ export class Hud {
   private buildCards(): void {
     const list = el('tower-list');
     list.innerHTML = '';
+    this.cards.clear();
 
     TOWER_ORDER.forEach((kind, index) => {
       const def = TOWER_DEFS[kind];
@@ -84,7 +110,7 @@ export class Hud {
         <span class="tc-role">${def.role}</span>
         <span class="tc-cost">${def.cost}</span>
       `;
-      card.addEventListener('click', () => this.actions.selectKind(kind));
+      card.onclick = () => this.actions.selectKind(kind);
       list.appendChild(card);
       this.cards.set(kind, card);
     });
@@ -116,18 +142,26 @@ export class Hud {
     this.soundBtn.classList.toggle('on', enabled);
   }
 
+  setTopView(active: boolean): void {
+    this.viewBtn.classList.toggle('on', active);
+    this.viewBtn.textContent = active ? 'ORBIT' : 'TOP';
+  }
+
   refresh(force = false): void {
     const game = this.game;
+    const total = game.totalWaves;
 
-    this.wave.innerHTML = `${game.wave.toString().padStart(2, '0')} <span>/ ${TOTAL_WAVES}</span>`;
+    this.wave.innerHTML = `${game.wave.toString().padStart(2, '0')} <span>/ ${
+      Number.isFinite(total) ? total : '∞'
+    }</span>`;
     this.purged.textContent = game.kills.toString();
     this.data.textContent = Math.floor(game.money).toString();
 
     this.integrity.textContent = `${Math.ceil(game.integrity)}%`;
-    this.integrityBar.style.width = `${Math.max(0, game.integrity)}%`;
+    this.integrityBar.style.width = `${Math.min(100, Math.max(0, game.integrity))}%`;
     this.integrityBar.classList.toggle('low', game.integrity <= 40);
 
-    const waveDef = WAVES[Math.min(game.wave - 1, WAVES.length - 1)] ?? [];
+    const waveDef = game.nextWave;
     const boss = waveDef.some((group) => group.kind === 'face');
     const fighting = game.phase === 'wave';
 
@@ -135,22 +169,30 @@ export class Hud {
     this.threat.classList.toggle('active', fighting && !boss);
     this.threat.classList.toggle('boss', fighting && boss);
 
-    const canStart = game.phase === 'prep';
+    const canStart = game.phase === 'prep' && game.pendingRewards.length === 0;
     this.waveBtn.disabled = !canStart;
     this.waveBtnSub.textContent = canStart
-      ? 'READY'
+      ? game.earlyBonus > 0
+        ? `+${game.earlyBonus} DATA`
+        : 'READY'
       : fighting
         ? `${game.waveRemaining} LEFT`
-        : 'LOCKED';
+        : game.pendingRewards.length > 0
+          ? 'REWARD'
+          : 'LOCKED';
+
+    const early = game.earlyBonus;
     this.waveMeta.textContent = canStart
-      ? boss
-        ? 'обнаружен сигнал THE FACE'
-        : `волна ${game.wave} из ${TOTAL_WAVES}`
+      ? early > 0
+        ? `досрочный запуск +${early} DATA · ${game.prepRemaining}s`
+        : `волна ${game.wave}${Number.isFinite(total) ? ` из ${total}` : ''}`
       : fighting
         ? `осталось ${game.waveRemaining} целей`
         : '';
 
     this.waveProgress.style.width = `${Math.round(game.waveProgress * 100)}%`;
+    this.undoBtn.disabled = !game.canUndo;
+    this.undoBtn.classList.toggle('on', game.canUndo);
 
     for (const kind of TOWER_ORDER) {
       const card = this.cards.get(kind);
@@ -161,8 +203,12 @@ export class Hud {
 
     const selected = game.selected;
     const key = selected
-      ? `tower-${selected.id}-${selected.level}-${Math.floor(game.money)}`
-      : `wave-${game.wave}-${game.phase}-${game.phase === 'wave' ? game.waveRemaining : 'x'}`;
+      ? `tower-${selected.id}-${selected.level}-${selected.branch}-${selected.priority}-${Math.floor(
+          game.money,
+        )}-${this.armedSellAll}`
+      : `wave-${game.wave}-${game.phase}-${game.waveMods.map((mod) => mod.id).join('.')}-${
+          game.pendingRewards.length
+        }-${game.mode}`;
 
     if (force || key !== this.inspectorKey) {
       this.inspectorKey = key;
@@ -170,55 +216,35 @@ export class Hud {
     }
   }
 
+  private handleMassSell(kind: TowerKind): void {
+    if (this.armedSellAll === kind) {
+      this.armedSellAll = null;
+      window.clearTimeout(this.armTimer);
+      this.actions.massSell(kind);
+      return;
+    }
+
+    this.armedSellAll = kind;
+    this.inspectorKey = '';
+    window.clearTimeout(this.armTimer);
+    this.armTimer = window.setTimeout(() => {
+      this.armedSellAll = null;
+      this.inspectorKey = '';
+      this.refresh(true);
+    }, 4000);
+    this.renderInspector();
+  }
+
   private renderInspector(): void {
     const game = this.game;
     const tower = game.selected;
 
     if (tower) {
-      const def = TOWER_DEFS[tower.kind];
-      const maxed = tower.level >= 3;
-      const cost = upgradeCost(def.cost, tower.level);
-      const nextDamage = maxed ? tower.damage : damageAt(def.damage, tower.level + 1);
-      const nextRange = maxed ? tower.range : rangeAt(def.range, tower.level + 1);
-      const refund = Math.floor(tower.spent * 0.65);
-
-      this.inspectTitle.textContent = def.name;
-      this.inspectTag.textContent = `LVL ${tower.level}`;
-
-      const special = def.splash
-        ? `<div><span>SPLASH</span><b>${def.splash.toFixed(1)}</b></div>`
-        : def.slow
-          ? `<div><span>SLOW</span><b>${Math.round(def.slow * 100)}%</b></div>`
-          : '';
-
-      this.inspectBody.innerHTML = `
-        <div class="insp-name">${def.name}<em>LVL ${tower.level} / 3</em></div>
-        <div class="lvl-dots">${[1, 2, 3].map((n) => `<i class="${n <= tower.level ? 'on' : ''}"></i>`).join('')}</div>
-        <div class="insp-rows">
-          <div><span>DAMAGE</span><b class="${maxed ? '' : 'up'}">${tower.damage.toFixed(1)}${
-            maxed ? '' : ` → ${nextDamage.toFixed(1)}`
-          }</b></div>
-          <div><span>RANGE</span><b class="${maxed ? '' : 'up'}">${tower.range.toFixed(1)}${
-            maxed ? '' : ` → ${nextRange.toFixed(1)}`
-          }</b></div>
-          <div><span>RATE</span><b>${(1 / def.cooldown).toFixed(2)}/s</b></div>
-          ${special}
-        </div>
-        <div class="insp-actions">
-          <button data-action="upgrade" ${maxed || game.money < cost ? 'disabled' : ''}>
-            <span>${maxed ? 'MAX LEVEL' : 'UPGRADE'}</span>
-            <em>${maxed ? '—' : `${cost} DATA`}</em>
-          </button>
-          <button class="ghost" data-action="sell">
-            <span>SELL</span>
-            <em>+${refund} DATA</em>
-          </button>
-        </div>
-      `;
+      this.renderTower(tower);
       return;
     }
 
-    const waveDef = WAVES[Math.min(game.wave - 1, WAVES.length - 1)] ?? [];
+    const waveDef = game.nextWave;
     const counts = new Map<EnemyKind, number>();
     for (const group of waveDef) {
       counts.set(group.kind, (counts.get(group.kind) ?? 0) + group.count);
@@ -235,22 +261,133 @@ export class Hud {
     const rows = [...counts.entries()]
       .map(([kind, count]) => {
         const def = ENEMY_DEFS[kind];
-        return `<div class="wave-row ${kind === 'face' ? 'boss' : ''}">
-          <span class="sigil">${def.sigil}</span>
-          <span class="nm">${def.name}</span>
-          <span class="cnt">×${count}</span>
+        const hp = Math.round(def.hp);
+        const armor = Math.round(def.armor * 100);
+        const tags = (def.tags ?? []).join(' · ');
+        return `<div class="wave-block ${kind === 'face' ? 'boss' : ''}">
+          <div class="wave-row">
+            <span class="sigil">${def.sigil}</span>
+            <span class="nm">${def.name}</span>
+            <span class="cnt">×${count}</span>
+          </div>
+          <div class="wave-stats">HP ${hp} · SPD ${def.speed.toFixed(1)} · ARM ${armor}%${
+            tags ? ` · ${tags}` : ''
+          }</div>
         </div>`;
       })
       .join('');
 
+    const mods = game.waveMods.length
+      ? `<div class="wave-mods">${game.waveMods
+          .map((mod) => `<b>${mod.name}</b> ${mod.desc}`)
+          .join('<br />')}</div>`
+      : '';
+
     const note = counts.has('face')
-      ? 'Сигнал THE FACE. Он не остановится, пока не дойдёт до ядра.'
-      : 'Выбери протокол слева и поставь башню на свободную клетку.';
+      ? 'THE FACE: щит, ярость после разбития и свита. Держи бронебой и замедление.'
+      : counts.has('flyer')
+        ? 'WISP летит напрямую к ядру и срезает маршрут — прикрой прямую.'
+        : counts.has('phantom')
+          ? 'PHANTOM исчезает на несколько секунд. Поля SNARE всё равно его достают.'
+          : 'Площадь, контроль и бронебой решают больше, чем одна сильная башня.';
 
     this.inspectBody.innerHTML = `
-      <div class="insp-empty">Урон — только часть плана. Замедление и площадь решают больше.</div>
+      ${mods}
       ${rows}
       <div class="wave-note">${note}</div>
+    `;
+  }
+
+  private renderTower(tower: NonNullable<Game['selected']>): void {
+    const game = this.game;
+    const def = TOWER_DEFS[tower.kind];
+    const stats = game.statsFor(tower);
+    const maxed = tower.level >= 3;
+    const cost = upgradeCost(def.cost, tower.level);
+    const branchCost = Math.round(def.cost * 1.2);
+    const refund = Math.floor(tower.spent * 0.65);
+    const branch = tower.branch ? BRANCHES[tower.branch] : null;
+    const options = TOWER_BRANCHES[tower.kind];
+
+    this.inspectTitle.textContent = def.name;
+    this.inspectTag.textContent = `LVL ${tower.level}`;
+
+    const branchRows = branch
+      ? `<div class="insp-branch"><b>${branch.name}</b><span>${branch.role}</span></div>`
+      : '';
+
+    const special = def.splash
+      ? `<div><span>SPLASH</span><b>${(stats.splash || 0).toFixed(1)}</b></div>`
+      : def.slow
+        ? `<div><span>SLOW</span><b>${Math.round(stats.slow * 100)}%</b></div>`
+        : '';
+
+    const branchPicker =
+      maxed && !tower.branch
+        ? `<div class="branch-pick">
+            <div class="branch-head">ВЕТКА ТРЕТЬЕГО УРОВНЯ <em>${branchCost} DATA</em></div>
+            ${options
+              .map((id) => {
+                const info = BRANCHES[id];
+                return `<button data-action="branch" data-branch="${id}" ${
+                  game.money < branchCost ? 'disabled' : ''
+                }>
+                  <b>${info.name}</b>
+                  <em>${info.role}</em>
+                  <span>${info.desc}</span>
+                </button>`;
+              })
+              .join('')}
+          </div>`
+        : '';
+
+    const priorityRow = `
+      <div class="priority">
+        <span>ЦЕЛИ</span>
+        <div>
+          ${PRIORITIES.map(
+            (item) =>
+              `<button data-action="priority" data-priority="${item.id}" title="${item.title}" class="${
+                tower.priority === item.id ? 'on' : ''
+              }">${item.label}</button>`,
+          ).join('')}
+        </div>
+      </div>
+    `;
+
+    const sameKind = game.towers.filter((item) => item.kind === tower.kind);
+    const upgradable = sameKind.filter((item) => item.level < 3).length;
+    const armed = this.armedSellAll === tower.kind;
+
+    this.inspectBody.innerHTML = `
+      <div class="insp-name">${def.name}<em>LVL ${tower.level} / 3</em></div>
+      <div class="lvl-dots">${[1, 2, 3].map((n) => `<i class="${n <= tower.level ? 'on' : ''}"></i>`).join('')}</div>
+      ${branchRows}
+      <div class="insp-rows">
+        <div><span>DAMAGE</span><b>${stats.damage.toFixed(1)}</b></div>
+        <div><span>RANGE</span><b>${stats.range.toFixed(1)}</b></div>
+        <div><span>RATE</span><b>${(1 / stats.cooldown).toFixed(2)}/s</b></div>
+        ${special}
+        ${stats.armorPierce > 0 ? `<div><span>ARMOR PIERCE</span><b>${Math.round(stats.armorPierce * 100)}%</b></div>` : ''}
+      </div>
+      ${priorityRow}
+      ${branchPicker}
+      <div class="insp-actions">
+        <button data-action="upgrade" ${maxed || game.money < cost ? 'disabled' : ''}>
+          <span>${maxed ? 'MAX LEVEL' : 'UPGRADE'}</span>
+          <em>${maxed ? '—' : `${cost} DATA`}</em>
+        </button>
+        <button class="ghost" data-action="move"><span>ПЕРЕМЕСТИТЬ</span><em>бесплатно</em></button>
+        <button class="ghost" data-action="sell"><span>SELL</span><em>+${refund} DATA</em></button>
+      </div>
+      <div class="mass-actions">
+        <button data-action="mass-upgrade" data-kind="${tower.kind}" ${
+          upgradable === 0 ? 'disabled' : ''
+        }>ВСЕ ${def.name} → LVL <em>×${upgradable}</em></button>
+        <button data-action="mass-sell" data-kind="${tower.kind}" class="danger ${armed ? 'armed' : ''}" ${
+          sameKind.length === 0 ? 'disabled' : ''
+        }>${armed ? 'ТОЧНО ПРОДАТЬ?' : `ПРОДАТЬ ВСЕ ×${sameKind.length}`}</button>
+      </div>
     `;
   }
 }

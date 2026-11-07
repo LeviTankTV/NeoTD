@@ -61,8 +61,6 @@ button {
   outline: none;
 }
 
-/* --------------------------------------------------- screen effects */
-
 .fx {
   position: fixed;
   inset: 0;
@@ -134,8 +132,6 @@ button {
     transform: translateY(76vh);
   }
 }
-
-/* --------------------------------------------------- shell */
 
 #ui {
   position: fixed;
@@ -326,8 +322,6 @@ button {
   border-color: var(--mint);
 }
 
-/* --------------------------------------------------- panels */
-
 .panel {
   position: absolute;
   background: linear-gradient(180deg, rgba(8, 13, 23, 0.92), rgba(5, 8, 15, 0.86));
@@ -376,8 +370,6 @@ button {
   color: var(--mint2);
   letter-spacing: 0.12em;
 }
-
-/* --------------------------------------------------- tower rail */
 
 #rail {
   top: 70px;
@@ -474,8 +466,6 @@ button {
   letter-spacing: 0.04em;
 }
 
-/* --------------------------------------------------- inspector */
-
 #inspector {
   top: 70px;
   right: 18px;
@@ -483,11 +473,19 @@ button {
   min-height: 150px;
 }
 
+#inspector {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 150px);
+}
+
 #inspect-body {
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 11px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .insp-name {
@@ -634,8 +632,6 @@ button {
   padding-top: 8px;
 }
 
-/* --------------------------------------------------- log */
-
 #log {
   position: absolute;
   left: 18px;
@@ -677,8 +673,6 @@ button {
     transform: translateX(-6px);
   }
 }
-
-/* --------------------------------------------------- wave dock */
 
 #wave-dock {
   position: absolute;
@@ -763,8 +757,6 @@ button {
   letter-spacing: 0.12em;
   color: rgba(94, 115, 144, 0.65);
 }
-
-/* --------------------------------------------------- overlays */
 
 .screen {
   position: fixed;
@@ -951,8 +943,6 @@ button {
   color: var(--red);
 }
 
-/* --------------------------------------------------- end screen */
-
 .end-inner.good .end-kicker {
   color: var(--green);
 }
@@ -1029,6 +1019,343 @@ button {
 .ghost:hover {
   color: var(--ink);
   border-color: var(--mint2);
+}
+
+.title-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: min(600px, 100%);
+  margin: 2px 0 6px;
+}
+
+.setup-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setup-group > label {
+  width: 92px;
+  text-align: right;
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  color: var(--mint2);
+}
+
+.seg {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.seg-btn {
+  padding: 6px 10px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  background: rgba(10, 16, 28, 0.5);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.seg-btn:hover {
+  color: var(--mint);
+  border-color: var(--mint2);
+}
+
+.seg-btn.on {
+  color: #04101f;
+  background: var(--mint);
+  border-color: var(--mint);
+}
+
+.wave-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wave-stats {
+  padding-left: 22px;
+  font-size: 8.5px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: rgba(94, 115, 144, 0.9);
+}
+
+.wave-block.boss .wave-stats {
+  color: rgba(255, 207, 138, 0.65);
+}
+
+.wave-mods {
+  padding: 7px 9px;
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--amber);
+  background: rgba(255, 207, 138, 0.05);
+  border: 1px solid rgba(255, 207, 138, 0.22);
+}
+
+.wave-mods b {
+  letter-spacing: 0.1em;
+}
+
+.insp-branch {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--mint);
+  border: 1px solid rgba(156, 201, 255, 0.24);
+  background: rgba(156, 201, 255, 0.05);
+}
+
+.insp-branch b {
+  font-weight: 600;
+}
+
+.insp-branch span {
+  color: var(--dim);
+}
+
+.priority {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.priority > span {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--dim);
+}
+
+.priority > div {
+  display: flex;
+  gap: 3px;
+}
+
+.priority button {
+  padding: 3px 5px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.priority button:hover {
+  color: var(--mint);
+  border-color: var(--mint2);
+}
+
+.priority button.on {
+  color: #04101f;
+  background: var(--mint);
+  border-color: var(--mint);
+}
+
+.branch-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.branch-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: var(--mint2);
+}
+
+.branch-head em {
+  font-style: normal;
+  color: var(--amber);
+}
+
+.branch-pick button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(10, 16, 28, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.branch-pick button b {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--mint);
+}
+
+.branch-pick button em {
+  font-style: normal;
+  font-size: 8.5px;
+  color: var(--amber);
+}
+
+.branch-pick button span {
+  font-size: 8.5px;
+  line-height: 1.45;
+  color: var(--dim);
+}
+
+.branch-pick button:hover:not(:disabled) {
+  border-color: var(--mint);
+  background: rgba(156, 201, 255, 0.1);
+}
+
+.branch-pick button:disabled {
+  opacity: 0.4;
+}
+
+.mass-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+.mass-actions button {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.mass-actions button em {
+  font-style: normal;
+  color: var(--mint2);
+}
+
+.mass-actions button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--mint2);
+}
+
+.mass-actions .danger:hover:not(:disabled) {
+  color: #ffd7de;
+  border-color: rgba(255, 43, 77, 0.5);
+}
+
+.mass-actions .armed {
+  color: #ffd7de;
+  background: rgba(255, 43, 77, 0.16);
+  border-color: var(--red);
+}
+
+.mass-actions button:disabled {
+  opacity: 0.35;
+}
+
+.chip:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#reward-screen {
+  z-index: 30;
+}
+
+.reward-inner {
+  position: relative;
+  width: min(900px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.reward-inner h2 {
+  margin: 0;
+  font-size: clamp(30px, 5vw, 54px);
+  letter-spacing: 0.18em;
+  color: #e5f0ff;
+  text-shadow:
+    2px 0 0 rgba(255, 43, 77, 0.45),
+    -2px 0 0 rgba(156, 201, 255, 0.45),
+    0 0 44px rgba(156, 201, 255, 0.2);
+}
+
+.reward-inner p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.reward-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.reward-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 16px;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(8, 13, 23, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.reward-card:hover {
+  border-color: var(--mint);
+  background: rgba(24, 42, 74, 0.55);
+  transform: translateY(-2px);
+}
+
+.reward-card b {
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  color: var(--mint);
+}
+
+.reward-card em {
+  font-style: normal;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+.reward-tag {
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  color: var(--red);
+}
+
+.end-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+#endless-btn[hidden] {
+  display: none;
 }
 
 @media (max-width: 1080px) {

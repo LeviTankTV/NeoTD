@@ -8,7 +8,7 @@
       name="description"
       content="NeoTD — 3D tower defense в терминальной эстетике: 15 волн, 4 протокола обороны, процедурная арена."
     />
-    <title>NEOTD // CONTAINMENT</title>
+    <title>NEOTD</title>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
@@ -24,7 +24,6 @@
         <div class="brand">
           <span class="brand-sigil">◈</span>
           <span class="brand-name">NEOTD</span>
-          <span class="brand-sub">// CONTAINMENT</span>
         </div>
 
         <div class="top-mid">
@@ -55,6 +54,8 @@
             <b id="data">240</b>
           </div>
           <div class="top-actions">
+            <button id="undo-btn" class="chip" type="button" title="Отменить последнее действие (Ctrl+Z)">UNDO</button>
+            <button id="view-btn" class="chip" type="button" title="Вид сверху (V)">TOP</button>
             <button id="speed-btn" class="chip" type="button" title="Скорость симуляции">1×</button>
             <button id="sound-btn" class="chip" type="button" title="Звук">SND</button>
           </div>
@@ -106,13 +107,28 @@
         </div>
 
         <h1 class="title-logo">NEOTD</h1>
-        <div class="title-sub"><span>TOWER DEFENSE</span><em>//</em>ПРОТОКОЛ СДЕРЖИВАНИЯ</div>
+        <div class="title-sub"><span>TOWER DEFENSE</span><em>·</em>ПРОТОКОЛ СДЕРЖИВАНИЯ</div>
 
         <p class="title-lede">
           VESSEL дрейфует в пустоте. По сетке идут фрагменты.<br />
           Ты — оператор. У тебя есть протоколы и ровно столько времени,
           сколько выдержит ядро.
         </p>
+
+        <div class="title-setup">
+          <div class="setup-group">
+            <label>АРЕНА</label>
+            <div class="seg" id="map-select"></div>
+          </div>
+          <div class="setup-group">
+            <label>РЕЖИМ</label>
+            <div class="seg" id="mode-select"></div>
+          </div>
+          <div class="setup-group">
+            <label>СЛОЖНОСТЬ</label>
+            <div class="seg" id="difficulty-select"></div>
+          </div>
+        </div>
 
         <button id="start-btn" class="primary" type="button">
           <span>ИНИЦИАЛИЗИРОВАТЬ</span>
@@ -135,8 +151,8 @@
         </div>
 
         <div class="title-foot">
-          <span>BEST // <b id="best-wave">—</b></span>
-          <span>BUILD 0.1 // <em>NO SIGNAL</em></span>
+          <span>BEST <b id="best-wave">—</b></span>
+          <span>BUILD 0.2 · <em>NO SIGNAL</em></span>
         </div>
       </div>
     </section>
@@ -152,7 +168,19 @@
           <span>ПЕРЕЗАПУСТИТЬ</span>
           <em>R</em>
         </button>
-        <button id="menu-btn" class="ghost" type="button">В МЕНЮ</button>
+        <div class="end-actions">
+          <button id="endless-btn" class="ghost" type="button">БЕСКОНЕЧНЫЙ РЕЖИМ</button>
+          <button id="menu-btn" class="ghost" type="button">В МЕНЮ</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="reward-screen" class="screen" hidden>
+      <div class="reward-inner">
+        <div class="end-kicker">ROGUE PROTOCOL · МОДУЛЬ</div>
+        <h2>УСИЛЕНИЕ</h2>
+        <p>Выбери один модуль. Он действует до конца забега.</p>
+        <div id="reward-cards" class="reward-cards"></div>
       </div>
     </section>
   </body>

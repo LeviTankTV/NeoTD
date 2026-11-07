@@ -7,6 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { COLORS } from '../game/constants';
 import type { GameMap } from '../game/map';
 import { Effects } from './effects';
+import { disposeGroup } from './models';
 import { buildArena, type Arena } from './world';
 
 export class SceneView {
@@ -16,7 +17,7 @@ export class SceneView {
   readonly controls: OrbitControls;
   readonly composer: EffectComposer;
   readonly effects: Effects;
-  readonly arena: Arena;
+  arena: Arena;
 
   private integrity = 100;
   private clock = 0;
@@ -76,6 +77,14 @@ export class SceneView {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  setMap(map: GameMap): void {
+    this.scene.remove(this.arena.group);
+    disposeGroup(this.arena.group);
+    this.arena = buildArena(map);
+    this.scene.add(this.arena.group);
+    this.effects.reset();
   }
 
   resize(): void {
