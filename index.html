@@ -114,67 +114,67 @@
       </div>
 
       <div class="title-inner">
-        <div class="title-meta">
-          <span data-en="SIGNAL STABLE">СИГНАЛ СТАБИЛЕН</span>
-          <span>NODE 07</span>
-          <span id="title-clock">00:00:00</span>
+        <div class="title-brand">
+          <div class="title-meta">
+            <span data-en="SIGNAL STABLE">СИГНАЛ СТАБИЛЕН</span>
+            <span>NODE 07</span>
+            <span id="title-clock">00:00:00</span>
+          </div>
+
+          <h1 class="title-logo">NEOTD</h1>
+          <div class="title-sub"><span>TOWER DEFENSE</span><em>·</em><span data-en="CONTAINMENT PROTOCOL">ПРОТОКОЛ СДЕРЖИВАНИЯ</span></div>
+
+          <p class="title-lede">
+            <span data-en="VESSEL drifts in the void. Fragments march across the grid.">VESSEL дрейфует в пустоте. По сетке идут фрагменты.</span>
+            <span data-en="You are the operator. You have protocols, and exactly as much time as the core can take.">Ты — оператор. У тебя есть протоколы и ровно столько времени, сколько выдержит ядро.</span>
+          </p>
+
+          <div class="title-spec">
+            <span><b>15</b><em data-en="WAVES">ВОЛН</em></span>
+            <span><b>04</b><em data-en="PROTOCOLS">ПРОТОКОЛА</em></span>
+            <span><b>08</b><em data-en="THREATS">УГРОЗ</em></span>
+            <span><b>05</b><em data-en="ARENAS">АРЕН</em></span>
+          </div>
+
+          <div class="title-foot">
+            <span>BEST <b id="best-wave">—</b></span>
+            <span>BUILD 1.0 · <em data-en="NO SIGNAL">НЕТ СИГНАЛА</em></span>
+          </div>
         </div>
 
-        <h1 class="title-logo">NEOTD</h1>
-        <div class="title-sub"><span>TOWER DEFENSE</span><em>·</em><span data-en="CONTAINMENT PROTOCOL">ПРОТОКОЛ СДЕРЖИВАНИЯ</span></div>
+        <div class="title-console">
+          <div class="console-head">
+            <span class="console-dot" aria-hidden="true"></span>
+            <b>OPERATOR CONSOLE</b>
+            <em data-en="LAUNCH SEQUENCE">ЗАПУСК ПРОТОКОЛА</em>
+          </div>
 
-        <p class="title-lede">
-          <span data-en="VESSEL drifts in the void. Fragments march across the grid.">VESSEL дрейфует в пустоте. По сетке идут фрагменты.</span><br />
-          <span data-en="You are the operator. You have protocols, and exactly as much time as the core can take.">Ты — оператор. У тебя есть протоколы и ровно столько времени,
-          сколько выдержит ядро.</span>
-        </p>
-
-        <div class="title-setup">
           <div class="setup-group">
-            <label data-en="ARENA">АРЕНА</label>
+            <div class="setup-label"><i>01</i><label data-en="ARENA">АРЕНА</label></div>
             <div class="seg" id="map-select"></div>
           </div>
           <div class="setup-group">
-            <label data-en="MODE">РЕЖИМ</label>
+            <div class="setup-label"><i>02</i><label data-en="MODE">РЕЖИМ</label></div>
             <div class="seg" id="mode-select"></div>
           </div>
           <div class="setup-group">
-            <label data-en="DIFFICULTY">СЛОЖНОСТЬ</label>
+            <div class="setup-label"><i>03</i><label data-en="DIFFICULTY">СЛОЖНОСТЬ</label></div>
             <div class="seg" id="difficulty-select"></div>
           </div>
-        </div>
 
-        <div class="title-actions">
-          <button id="start-btn" class="primary" type="button">
-            <span data-en="INITIALISE">ИНИЦИАЛИЗИРОВАТЬ</span>
-            <em>ENTER</em>
-          </button>
-          <button id="archive-btn" class="ghost archive-open" type="button">
-            <span data-en="ARCHIVE">АРХИВ</span>
-            <em data-en="profile">профиль</em>
-          </button>
-        </div>
-
-        <div class="title-record" id="best-record"></div>
-
-        <div class="title-grid">
-          <div>
-            <label data-en="GOAL">ЦЕЛЬ</label>
-            <p data-en="Stop the fragments from reaching VESSEL. Fifteen waves.">Не дать фрагментам дойти до VESSEL. Пятнадцать волн.</p>
+          <div class="title-actions">
+            <button id="start-btn" class="primary" type="button">
+              <span class="launch-mark" aria-hidden="true">&gt;</span>
+              <span data-en="INITIALISE">ИНИЦИАЛИЗИРОВАТЬ</span>
+              <em>ENTER</em>
+            </button>
+            <button id="archive-btn" class="ghost archive-open" type="button">
+              <span data-en="ARCHIVE">АРХИВ</span>
+              <em data-en="profile">профиль</em>
+            </button>
           </div>
-          <div>
-            <label data-en="RESOURCE">РЕСУРС</label>
-            <p data-en="DATA comes from destroyed fragments and cleared waves.">DATA дают уничтоженные фрагменты и завершённые волны.</p>
-          </div>
-          <div>
-            <label data-en="CONTROLS">УПРАВЛЕНИЕ</label>
-            <p data-en="1–4 — protocol, LMB — build, U — upgrade, S — sell.">1–4 — протокол, ЛКМ — разместить, U — апгрейд, S — продать.</p>
-          </div>
-        </div>
 
-        <div class="title-foot">
-          <span>BEST <b id="best-wave">—</b></span>
-          <span>BUILD 1.0 · <em data-en="NO SIGNAL">НЕТ СИГНАЛА</em></span>
+          <div class="title-record" id="best-record"></div>
         </div>
       </div>
     </section>
