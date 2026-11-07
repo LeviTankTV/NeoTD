@@ -465,7 +465,7 @@ function strategyName(strategy: Strategy): string {
 
 function report(configs: Config[]): string {
   const lines: string[] = [];
-  lines.push('# Баланс NeoTD — отчёт симулятора');
+  lines.push('# Баланс Neo TD — отчёт симулятора');
   lines.push('');
   lines.push(
     'Сгенерировано `npm run balance`. Безголовый симулятор играет кампанию на всех аренах и сложностях пятью стратегиями по ' +

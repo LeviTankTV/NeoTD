@@ -9,7 +9,7 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#03050c',
     autoHideMenuBar: true,
-    title: 'NEOTD',
+    title: 'Neo TD',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

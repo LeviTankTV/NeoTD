@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "main": "electron/main.cjs",
-  "description": "NeoTD — 3D tower defense в терминальной эстетике",
+  "description": "Neo TD — 3D tower defense в терминальной эстетике",
   "homepage": "https://github.com/LeviTankTV/NeoTD",
   "repository": {
     "type": "git",
@@ -32,7 +32,7 @@
   },
   "build": {
     "appId": "tv.levitank.neotd",
-    "productName": "NeoTD",
+    "productName": "Neo TD",
     "directories": {
       "output": "release"
     },

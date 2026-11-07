@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/banner.svg" alt="NEOTD — 3D tower defense" width="100%" />
+  <img src="docs/media/banner.svg" alt="Neo TD — 3D tower defense" width="100%" />
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/media/hero.png" alt="Арена NeoTD: протоколы обороны вокруг маршрута" width="49%" />
+  <img src="docs/media/hero.png" alt="Арена Neo TD: протоколы обороны вокруг маршрута" width="49%" />
   <img src="docs/media/combat.png" alt="Бой: волна GATE и GLITCH под огнём башен" width="49%" />
 </p>
 
@@ -194,7 +194,7 @@ scripts/
 - [x] Симулятор баланса и отчёт.
 - [x] Desktop-сборка.
 
-Дальше — NeoTD II: кооператив, синергии башен и герой. Курс и порядок работ — в [docs/PLAN.md](docs/PLAN.md).
+Дальше — Neo TD II: кооператив, синергии башен и герой. Курс и порядок работ — в [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
