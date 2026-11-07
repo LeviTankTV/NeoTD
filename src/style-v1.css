@@ -874,7 +874,7 @@ body.boss-mode .fx-vignette {
 
 .title-brand .title-logo {
   margin: 0;
-  font-size: clamp(64px, 9.5vw, 144px);
+  font-size: clamp(64px, 9vw, 132px);
   line-height: 0.82;
   letter-spacing: 0.02em;
 }
@@ -886,8 +886,8 @@ body.boss-mode .fx-vignette {
 
 .title-brand .title-lede {
   margin: 2px 0 0;
-  max-width: 46ch;
-  font-size: 12px;
+  max-width: 100%;
+  font-size: 12.5px;
   line-height: 1.8;
 }
 
@@ -917,7 +917,7 @@ body.boss-mode .fx-vignette {
 }
 
 .title-spec b {
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #dfeeff;
@@ -926,7 +926,7 @@ body.boss-mode .fx-vignette {
 
 .title-spec em {
   font-style: normal;
-  font-size: 8px;
+  font-size: 8.5px;
   letter-spacing: 0.22em;
   color: var(--dim);
 }
@@ -983,7 +983,7 @@ body.boss-mode .fx-vignette {
 }
 
 .console-head b {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.26em;
   color: var(--mint);
@@ -1031,13 +1031,13 @@ body.boss-mode .fx-vignette {
 
 .setup-label i {
   font-style: normal;
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.2em;
   color: rgba(94, 115, 144, 0.7);
 }
 
 .setup-label label {
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.2em;
   color: var(--mint2);
 }
@@ -1051,13 +1051,13 @@ body.boss-mode .fx-vignette {
 #map-select {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 18px;
+  gap: 6px 22px;
   counter-reset: arena;
 }
 
 .title-console .seg-btn {
   padding: 2px 0 4px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-align: left;
   color: rgba(120, 146, 178, 0.85);
@@ -1071,6 +1071,10 @@ body.boss-mode .fx-vignette {
   color: var(--mint);
   background: none;
   border: 0;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(156, 201, 255, 0.4);
 }
 
 .title-console .seg-btn.on {
@@ -1086,8 +1090,8 @@ body.boss-mode .fx-vignette {
 #map-select .seg-btn::before {
   counter-increment: arena;
   content: counter(arena, decimal-leading-zero);
-  margin-right: 8px;
-  font-size: 8px;
+  margin-right: 9px;
+  font-size: 9px;
   letter-spacing: 0.12em;
   color: rgba(94, 115, 144, 0.7);
 }
@@ -1108,14 +1112,16 @@ body.boss-mode .fx-vignette {
   width: 100%;
   justify-content: flex-start;
   gap: 12px;
-  padding: 13px 16px;
-  font-size: 11px;
+  padding: 15px 16px;
+  font-size: 11.5px;
   letter-spacing: 0.22em;
   color: #e8f2ff;
   background: rgba(156, 201, 255, 0.06);
   border: 1px solid rgba(156, 201, 255, 0.38);
   border-radius: 0;
-  box-shadow: inset 0 0 32px rgba(156, 201, 255, 0.05);
+  box-shadow:
+    inset 3px 0 0 var(--accent, var(--mint)),
+    inset 0 0 32px rgba(156, 201, 255, 0.05);
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -1144,8 +1150,8 @@ body.boss-mode .fx-vignette {
   align-self: flex-start;
   flex-direction: row;
   gap: 8px;
-  padding: 8px 0 6px;
-  font-size: 9px;
+  padding: 9px 0 6px;
+  font-size: 9.5px;
   letter-spacing: 0.2em;
   color: var(--dim);
   background: none;
@@ -1165,11 +1171,22 @@ body.boss-mode .fx-vignette {
   color: var(--accent, var(--mint2));
 }
 
+.title-console .archive-open::after {
+  content: "→";
+  font-size: 10px;
+  color: var(--accent, var(--mint2));
+  transition: transform 0.16s ease;
+}
+
+.title-console .archive-open:hover::after {
+  transform: translateX(3px);
+}
+
 .title-console .title-record {
   margin-top: 14px;
   padding: 0;
   min-height: 14px;
-  font-size: 8.5px;
+  font-size: 9px;
   letter-spacing: 0.14em;
   color: rgba(94, 115, 144, 0.9);
   background: none;
