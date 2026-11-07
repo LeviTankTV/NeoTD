@@ -1,5 +1,8 @@
 node_modules/
 dist/
 release/
+.balance/
 .dev.log
+.build.log
+.dist.log
 .DS_Store

@@ -19,11 +19,19 @@
     <div id="flash" aria-hidden="true"></div>
     <div id="glitch-line" aria-hidden="true"></div>
 
+    <div id="boss-alert" hidden aria-live="polite">
+      <span class="boss-sigil">◉</span>
+      <div><b>THE FACE</b><em data-en="POSSESSION">ВСЕЛЕНИЕ</em></div>
+    </div>
+
+    <div id="toast-stack" aria-live="polite"></div>
+
     <div id="ui" hidden>
       <header id="topbar">
         <div class="brand">
           <span class="brand-sigil">◈</span>
           <span class="brand-name">NEOTD</span>
+          <span class="brand-title" id="brand-title">OPERATOR</span>
         </div>
 
         <div class="top-mid">
@@ -54,10 +62,10 @@
             <b id="data">240</b>
           </div>
           <div class="top-actions">
-            <button id="undo-btn" class="chip" type="button" title="Отменить последнее действие (Ctrl+Z)">UNDO</button>
-            <button id="view-btn" class="chip" type="button" title="Вид сверху (V)">TOP</button>
-            <button id="speed-btn" class="chip" type="button" title="Скорость симуляции">1×</button>
-            <button id="sound-btn" class="chip" type="button" title="Звук">SND</button>
+            <button id="undo-btn" class="chip" type="button" title="Отменить последнее действие (Ctrl+Z)" data-en-title="Undo the last action (Ctrl+Z)">UNDO</button>
+            <button id="view-btn" class="chip" type="button" title="Вид сверху (V)" data-en-title="Top view (V)">TOP</button>
+            <button id="speed-btn" class="chip" type="button" title="Скорость симуляции" data-en-title="Simulation speed">1×</button>
+            <button id="sound-btn" class="chip" type="button" title="Звук" data-en-title="Sound">SND</button>
           </div>
         </div>
       </header>
@@ -66,9 +74,9 @@
         <div class="panel-head"><span>PROTOCOLS</span><em>[1–4]</em></div>
         <div id="tower-list"></div>
         <div class="rail-note">
-          <span>ЛКМ по сетке — разместить</span>
-          <span>ЛКМ по башне — выбрать</span>
-          <span>перетаскивание — обзор</span>
+          <span data-en="LMB on the grid — build">ЛКМ по сетке — разместить</span>
+          <span data-en="LMB on a tower — select">ЛКМ по башне — выбрать</span>
+          <span data-en="drag — orbit">перетаскивание — обзор</span>
         </div>
       </aside>
 
@@ -80,7 +88,7 @@
       <div id="log"></div>
 
       <div id="wave-dock">
-        <div id="wave-meta">Готов к запуску</div>
+        <div id="wave-meta" data-en="Ready to launch">Готов к запуску</div>
         <button id="wave-btn" type="button">
           <span>INITIATE WAVE</span>
           <em id="wave-btn-sub">READY</em>
@@ -89,70 +97,84 @@
       </div>
 
       <div id="hint-bar">
-        <span>DRAG — обзор</span>
-        <span>WHEEL — зум</span>
-        <span>ESC — отмена</span>
-        <span>U — апгрейд</span>
-        <span>S — продать</span>
+        <span data-en="DRAG — orbit">DRAG — обзор</span>
+        <span data-en="WHEEL — zoom">WHEEL — зум</span>
+        <span data-en="ESC — cancel">ESC — отмена</span>
+        <span data-en="U — upgrade">U — апгрейд</span>
+        <span data-en="S — sell">S — продать</span>
       </div>
     </div>
 
     <section id="title-screen" class="screen">
       <canvas id="glyph-canvas"></canvas>
+
+      <div class="lang-switch" id="lang-switch" role="group" aria-label="Language">
+        <button type="button" data-lang="ru" class="on">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+
       <div class="title-inner">
         <div class="title-meta">
-          <span>SIGNAL STABLE</span>
+          <span data-en="SIGNAL STABLE">СИГНАЛ СТАБИЛЕН</span>
           <span>NODE 07</span>
           <span id="title-clock">00:00:00</span>
         </div>
 
         <h1 class="title-logo">NEOTD</h1>
-        <div class="title-sub"><span>TOWER DEFENSE</span><em>·</em>ПРОТОКОЛ СДЕРЖИВАНИЯ</div>
+        <div class="title-sub"><span>TOWER DEFENSE</span><em>·</em><span data-en="CONTAINMENT PROTOCOL">ПРОТОКОЛ СДЕРЖИВАНИЯ</span></div>
 
         <p class="title-lede">
-          VESSEL дрейфует в пустоте. По сетке идут фрагменты.<br />
-          Ты — оператор. У тебя есть протоколы и ровно столько времени,
-          сколько выдержит ядро.
+          <span data-en="VESSEL drifts in the void. Fragments march across the grid.">VESSEL дрейфует в пустоте. По сетке идут фрагменты.</span><br />
+          <span data-en="You are the operator. You have protocols, and exactly as much time as the core can take.">Ты — оператор. У тебя есть протоколы и ровно столько времени,
+          сколько выдержит ядро.</span>
         </p>
 
         <div class="title-setup">
           <div class="setup-group">
-            <label>АРЕНА</label>
+            <label data-en="ARENA">АРЕНА</label>
             <div class="seg" id="map-select"></div>
           </div>
           <div class="setup-group">
-            <label>РЕЖИМ</label>
+            <label data-en="MODE">РЕЖИМ</label>
             <div class="seg" id="mode-select"></div>
           </div>
           <div class="setup-group">
-            <label>СЛОЖНОСТЬ</label>
+            <label data-en="DIFFICULTY">СЛОЖНОСТЬ</label>
             <div class="seg" id="difficulty-select"></div>
           </div>
         </div>
 
-        <button id="start-btn" class="primary" type="button">
-          <span>ИНИЦИАЛИЗИРОВАТЬ</span>
-          <em>ENTER</em>
-        </button>
+        <div class="title-actions">
+          <button id="start-btn" class="primary" type="button">
+            <span data-en="INITIALISE">ИНИЦИАЛИЗИРОВАТЬ</span>
+            <em>ENTER</em>
+          </button>
+          <button id="archive-btn" class="ghost archive-open" type="button">
+            <span data-en="ARCHIVE">АРХИВ</span>
+            <em data-en="profile">профиль</em>
+          </button>
+        </div>
+
+        <div class="title-record" id="best-record"></div>
 
         <div class="title-grid">
           <div>
-            <label>ЦЕЛЬ</label>
-            <p>Не дать фрагментам дойти до VESSEL. Пятнадцать волн.</p>
+            <label data-en="GOAL">ЦЕЛЬ</label>
+            <p data-en="Stop the fragments from reaching VESSEL. Fifteen waves.">Не дать фрагментам дойти до VESSEL. Пятнадцать волн.</p>
           </div>
           <div>
-            <label>РЕСУРС</label>
-            <p>DATA дают уничтоженные фрагменты и завершённые волны.</p>
+            <label data-en="RESOURCE">РЕСУРС</label>
+            <p data-en="DATA comes from destroyed fragments and cleared waves.">DATA дают уничтоженные фрагменты и завершённые волны.</p>
           </div>
           <div>
-            <label>УПРАВЛЕНИЕ</label>
-            <p>1–4 — протокол, ЛКМ — разместить, U — апгрейд, S — продать.</p>
+            <label data-en="CONTROLS">УПРАВЛЕНИЕ</label>
+            <p data-en="1–4 — protocol, LMB — build, U — upgrade, S — sell.">1–4 — протокол, ЛКМ — разместить, U — апгрейд, S — продать.</p>
           </div>
         </div>
 
         <div class="title-foot">
           <span>BEST <b id="best-wave">—</b></span>
-          <span>BUILD 0.2 · <em>NO SIGNAL</em></span>
+          <span>BUILD 1.0 · <em data-en="NO SIGNAL">НЕТ СИГНАЛА</em></span>
         </div>
       </div>
     </section>
@@ -164,24 +186,58 @@
         <h2 id="end-title">SIGNAL LOST</h2>
         <p id="end-text">VESSEL потерял целостность. Он снова остался один.</p>
         <div class="end-stats" id="end-stats"></div>
+        <div class="end-record" id="end-record"></div>
+        <div class="end-achievements" id="end-achievements"></div>
         <button id="restart-btn" class="primary" type="button">
-          <span>ПЕРЕЗАПУСТИТЬ</span>
+          <span data-en="RESTART">ПЕРЕЗАПУСТИТЬ</span>
           <em>R</em>
         </button>
         <div class="end-actions">
-          <button id="endless-btn" class="ghost" type="button">БЕСКОНЕЧНЫЙ РЕЖИМ</button>
-          <button id="menu-btn" class="ghost" type="button">В МЕНЮ</button>
+          <button id="endless-btn" class="ghost" type="button" data-en="ENDLESS MODE">БЕСКОНЕЧНЫЙ РЕЖИМ</button>
+          <button id="menu-btn" class="ghost" type="button" data-en="MENU">В МЕНЮ</button>
         </div>
       </div>
     </section>
 
     <section id="reward-screen" class="screen" hidden>
       <div class="reward-inner">
-        <div class="end-kicker">ROGUE PROTOCOL · МОДУЛЬ</div>
-        <h2>УСИЛЕНИЕ</h2>
-        <p>Выбери один модуль. Он действует до конца забега.</p>
+        <div class="end-kicker" data-en="ROGUE PROTOCOL · MODULE">ROGUE PROTOCOL · МОДУЛЬ</div>
+        <h2 data-en="UPGRADE">УСИЛЕНИЕ</h2>
+        <p data-en="Choose one module. It lasts until the end of the run.">Выбери один модуль. Он действует до конца забега.</p>
         <div id="reward-cards" class="reward-cards"></div>
       </div>
     </section>
+
+    <section id="archive-screen" class="screen" hidden>
+      <div class="archive-inner">
+        <div class="archive-head">
+          <div>
+            <div class="end-kicker" data-en="OPERATOR PROFILE">ПРОФИЛЬ ОПЕРАТОРА</div>
+            <h2 data-en="ARCHIVE">АРХИВ</h2>
+          </div>
+          <button id="archive-close" class="ghost" type="button" data-en="CLOSE">ЗАКРЫТЬ</button>
+        </div>
+
+        <div class="archive-tabs" id="archive-tabs">
+          <button type="button" data-tab="achievements" class="on" data-en="ACHIEVEMENTS">ДОСТИЖЕНИЯ</button>
+          <button type="button" data-tab="records" data-en="RECORDS">РЕКОРДЫ</button>
+          <button type="button" data-tab="titles" data-en="TITLES">ТИТУЛЫ</button>
+          <button type="button" data-tab="stats" data-en="STATS">СТАТИСТИКА</button>
+        </div>
+
+        <div id="archive-summary" class="archive-summary"></div>
+        <div id="archive-body" class="archive-body"></div>
+      </div>
+    </section>
+
+    <aside id="tutorial" hidden>
+      <div class="tut-head">
+        <span id="tut-step">01 / 05</span>
+        <button id="tut-skip" class="ghost" type="button" data-en="SKIP">ПРОПУСТИТЬ</button>
+      </div>
+      <b id="tut-title"></b>
+      <p id="tut-text"></p>
+      <div class="tut-hint" id="tut-hint"></div>
+    </aside>
   </body>
 </html>

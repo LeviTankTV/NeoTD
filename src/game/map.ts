@@ -19,17 +19,16 @@ export interface PathSample extends Point {
   dz: number;
 }
 
-export class GameMap {
-  readonly pathCells = new Set<string>();
+export class Route {
   readonly waypoints: Point[] = [];
-  readonly core: Point;
+  readonly pathCells = new Set<string>();
   readonly spawnPoint: Point;
-  readonly buildable: Point[] = [];
-  readonly totalLength: number;
+  readonly length: number;
+  readonly index: number;
   private readonly segments: Segment[] = [];
 
-  constructor(readonly def: MapDef = MAPS[0]) {
-    const path = def.path;
+  constructor(path: Array<[number, number]>, index: number) {
+    this.index = index;
 
     for (let i = 0; i < path.length - 1; i++) {
       const [ax, az] = path[i];
@@ -49,28 +48,64 @@ export class GameMap {
     }
 
     for (const [x, z] of path) {
-      this.waypoints.push(this.cellCenter(x, z));
+      this.waypoints.push({ x: cellX(x), z: cellZ(z) });
     }
 
     let cursor = 0;
     for (let i = 0; i < this.waypoints.length - 1; i++) {
       const a = this.waypoints[i];
       const b = this.waypoints[i + 1];
-      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      const segmentLength = Math.hypot(b.x - a.x, b.z - a.z) || 0.0001;
       this.segments.push({
         a,
         b,
         start: cursor,
-        length,
-        dx: (b.x - a.x) / length,
-        dz: (b.z - a.z) / length,
+        length: segmentLength,
+        dx: (b.x - a.x) / segmentLength,
+        dz: (b.z - a.z) / segmentLength,
       });
-      cursor += length;
+      cursor += segmentLength;
     }
 
-    this.totalLength = cursor;
-    this.core = this.cellCenter(def.core[0], def.core[1]);
+    this.length = cursor;
     this.spawnPoint = this.waypoints[0];
+  }
+
+  sample(distance: number): PathSample {
+    const clamped = Math.max(0, Math.min(distance, this.length - 0.0001));
+    let segment = this.segments[this.segments.length - 1];
+
+    for (const candidate of this.segments) {
+      if (clamped <= candidate.start + candidate.length) {
+        segment = candidate;
+        break;
+      }
+    }
+
+    const t = Math.min(1, Math.max(0, (clamped - segment.start) / segment.length));
+    return {
+      x: segment.a.x + (segment.b.x - segment.a.x) * t,
+      z: segment.a.z + (segment.b.z - segment.a.z) * t,
+      dx: segment.dx,
+      dz: segment.dz,
+    };
+  }
+}
+
+export class GameMap {
+  readonly routes: Route[];
+  readonly pathCells = new Set<string>();
+  readonly buildable: Point[] = [];
+  readonly core: Point;
+
+  constructor(readonly def: MapDef = MAPS[0]) {
+    this.routes = def.paths.map((path, index) => new Route(path, index));
+
+    for (const route of this.routes) {
+      for (const key of route.pathCells) this.pathCells.add(key);
+    }
+
+    this.core = { x: cellX(def.core[0]), z: cellZ(def.core[1]) };
 
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
@@ -79,8 +114,20 @@ export class GameMap {
     }
   }
 
+  get routeCount(): number {
+    return this.routes.length;
+  }
+
+  route(index: number): Route {
+    return this.routes[Math.max(0, Math.min(index, this.routes.length - 1))];
+  }
+
+  sample(routeIndex: number, distance: number): PathSample {
+    return this.route(routeIndex).sample(distance);
+  }
+
   cellCenter(x: number, z: number): Point {
-    return { x: (x - GRID_HALF) * TILE, z: (z - GRID_HALF) * TILE };
+    return { x: cellX(x), z: cellZ(z) };
   }
 
   worldToCell(x: number, z: number): Point | null {
@@ -100,24 +147,12 @@ export class GameMap {
     if (Math.abs(x - this.def.core[0]) <= 1 && Math.abs(z - this.def.core[1]) <= 1) return false;
     return true;
   }
+}
 
-  sample(distance: number): PathSample {
-    const clamped = Math.max(0, Math.min(distance, this.totalLength - 0.0001));
-    let segment = this.segments[this.segments.length - 1];
+function cellX(x: number): number {
+  return (x - GRID_HALF) * TILE;
+}
 
-    for (const candidate of this.segments) {
-      if (clamped <= candidate.start + candidate.length) {
-        segment = candidate;
-        break;
-      }
-    }
-
-    const t = Math.min(1, Math.max(0, (clamped - segment.start) / segment.length));
-    return {
-      x: segment.a.x + (segment.b.x - segment.a.x) * t,
-      z: segment.a.z + (segment.b.z - segment.a.z) * t,
-      dx: segment.dx,
-      dz: segment.dz,
-    };
-  }
+function cellZ(z: number): number {
+  return (z - GRID_HALF) * TILE;
 }

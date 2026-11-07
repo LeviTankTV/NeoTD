@@ -1,5 +1,9 @@
 import './style.css';
+import './style-v1.css';
 import * as THREE from 'three';
+import { L, initLang, setLang, tf, tr, type Lang } from './i18n';
+import { evaluateAchievements, type AchievementDef } from './game/achievements';
+import { applyAccent, titleById } from './game/cosmetics';
 import {
   DIFFICULTIES,
   MAPS,
@@ -10,12 +14,29 @@ import {
 } from './game/constants';
 import { Game, type GameHooks, type GameOptions } from './game/game';
 import { GameMap } from './game/map';
-import type { Cell, DifficultyId, ModeId, Phase, RewardDef, TowerKind } from './game/types';
+import type {
+  Cell,
+  DifficultyId,
+  ModeId,
+  Phase,
+  RewardDef,
+  TowerKind,
+} from './game/types';
+import {
+  applyRun,
+  loadProfile,
+  recordFor,
+  saveProfile,
+  type Profile,
+  type RunRecord,
+} from './profile';
 import { CellHighlight } from './render/models';
 import { SceneView } from './render/scene';
+import { Archive } from './ui/archive';
 import { Sound } from './ui/audio';
 import { startGlyphRain } from './ui/glyphrain';
 import { Hud, type HudActions } from './ui/hud';
+import { Tutorial } from './ui/tutorial';
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -23,8 +44,23 @@ function el<T extends HTMLElement>(id: string): T {
   return node as T;
 }
 
-const BEST_KEY = 'neotd.best';
-const ENDLESS_KEY = 'neotd.endless.best';
+const MODE_NAMES: Record<ModeId, ReturnType<typeof L>> = {
+  campaign: L('КАМПАНИЯ', 'CAMPAIGN'),
+  endless: L('БЕСКОНЕЧНЫЙ', 'ENDLESS'),
+  rogue: L('ROGUE', 'ROGUE'),
+};
+
+const MODE_HINTS: Record<ModeId, ReturnType<typeof L>> = {
+  campaign: L('15 волн', '15 waves'),
+  endless: L('волны без конца', 'endless waves'),
+  rogue: L('модификаторы и награды', 'modifiers and rewards'),
+};
+
+const RARITY_NAMES: Record<string, ReturnType<typeof L>> = {
+  common: L('ОБЫЧНЫЙ', 'COMMON'),
+  rare: L('РЕДКИЙ', 'RARE'),
+  epic: L('ЭПИЧЕСКИЙ', 'EPIC'),
+};
 
 const ui = el('ui');
 const titleScreen = el('title-screen');
@@ -35,10 +71,16 @@ const startBtn = el<HTMLButtonElement>('start-btn');
 const restartBtn = el<HTMLButtonElement>('restart-btn');
 const endlessBtn = el<HTMLButtonElement>('endless-btn');
 const menuBtn = el<HTMLButtonElement>('menu-btn');
+const archiveBtn = el<HTMLButtonElement>('archive-btn');
 const flashEl = el('flash');
 const glitchEl = el('glitch-line');
 const endGlyph = el<HTMLCanvasElement>('end-glyph');
 const titleGlyph = el<HTMLCanvasElement>('glyph-canvas');
+const toastStack = el('toast-stack');
+const bossAlert = el('boss-alert');
+
+initLang('ru');
+const profile: Profile = loadProfile();
 
 const selection: { mapId: string; mode: ModeId; difficulty: DifficultyId } = {
   mapId: MAPS[0].id,
@@ -55,16 +97,25 @@ view.scene.add(highlight.group);
 
 let game: Game;
 let hud: Hud | undefined;
+let tutorial: Tutorial | undefined;
+let archive: Archive | undefined;
 let speed = 1;
 let endShown = false;
 let topView = false;
 let stopRain: (() => void) | null = null;
 let flashTimer = 0;
+let bossTimer = 0;
+let bossShown = false;
+let lastEnd: { won: boolean; record: RunRecord | null; unlocked: AchievementDef[] } | null = null;
+
+sound.setEnabled(profile.sound);
+applyAccent(profile);
 
 const actions: HudActions = {
   startWave: () => {
     sound.init();
     game.startWave();
+    tutorial?.update();
   },
   cycleSpeed: () => {
     speed = speed === 1 ? 2 : speed === 2 ? 3 : 1;
@@ -73,6 +124,8 @@ const actions: HudActions = {
   toggleSound: () => {
     sound.init();
     sound.setEnabled(!sound.enabled);
+    profile.sound = sound.enabled;
+    saveProfileDebounced();
     hud?.setSound(sound.enabled);
   },
   toggleView: () => toggleTopView(),
@@ -81,12 +134,16 @@ const actions: HudActions = {
   sell: () => game.sellSelected(),
   move: () => game.beginMove(),
   chooseBranch: (branch) => game.chooseBranch(branch),
-  setPriority: (priority) => game.setPriority(priority),
+  setPriority: (priority) => {
+    game.setPriority(priority);
+    tutorial?.update();
+  },
   massUpgrade: (kind) => game.upgradeAll(kind),
   massSell: (kind) => game.sellAll(kind),
   selectKind: (kind: TowerKind) => {
     sound.init();
     game.setKind(game.selectedKind === kind ? null : kind);
+    tutorial?.update();
   },
 };
 
@@ -94,14 +151,28 @@ const hooks: GameHooks = {
   log: (text, kind) => hud?.log(text, kind),
   phase: (phase: Phase) => {
     hud?.refresh(true);
+    tutorial?.update();
     if (phase === 'lost') window.setTimeout(() => showEnd(false), 900);
     if (phase === 'won') window.setTimeout(() => showEnd(true), 1100);
   },
-  coreHit: () => flashScreen(),
-  changed: () => hud?.refresh(),
+  coreHit: () => {
+    flashScreen();
+    hud?.alarm();
+  },
+  changed: () => {
+    hud?.refresh();
+    tutorial?.update();
+  },
   sfx: (name) => sound.play(name),
   rewards: (options) => showRewards(options),
 };
+
+let saveTimer = 0;
+
+function saveProfileDebounced(): void {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => saveProfile(profile), 250);
+}
 
 function optionsFor(mode: ModeId, difficulty: DifficultyId): GameOptions {
   return { mode, difficulty };
@@ -115,6 +186,7 @@ function createGame(nextMap: GameMap, options: GameOptions): void {
   hud.setSpeed(speed);
   hud.setSound(sound.enabled);
   hud.setTopView(topView);
+  tutorial?.refresh();
 }
 
 function flashScreen(): void {
@@ -125,6 +197,22 @@ function flashScreen(): void {
 
   window.clearTimeout(flashTimer);
   flashTimer = window.setTimeout(() => flashEl.classList.remove('on'), 90);
+}
+
+function glitchScreen(screen: HTMLElement): void {
+  screen.classList.remove('glitch-in');
+  void screen.offsetWidth;
+  screen.classList.add('glitch-in');
+}
+
+function toast(kicker: string, title: string, text: string): void {
+  const node = document.createElement('div');
+  node.className = 'toast';
+  node.innerHTML = `<span>${kicker}</span><b>${title}</b><em>${text}</em>`;
+  toastStack.appendChild(node);
+  window.setTimeout(() => node.classList.add('out'), 4200);
+  window.setTimeout(() => node.remove(), 4800);
+  while (toastStack.children.length > 4) toastStack.firstElementChild?.remove();
 }
 
 function startRun(): void {
@@ -143,35 +231,76 @@ function startRun(): void {
     stopRain = null;
   }
 
+  archive?.close();
   createGame(map, optionsFor(selection.mode, selection.difficulty));
   rewardScreen.hidden = true;
+  endScreen.hidden = true;
   endShown = false;
   ui.hidden = false;
+  bossShown = false;
+  document.body.classList.remove('boss-mode');
+  bossAlert.hidden = true;
 
   hud?.refresh(true);
-  hud?.log(`ARENA ${def.name} · ${selection.mode.toUpperCase()}`, 'sys');
-  hud?.log('VESSEL ONLINE: оператор подключён', 'ok');
+  hud?.log(
+    tf(L('АРЕНА {name} · {mode}', 'ARENA {name} · {mode}'), {
+      name: def.name,
+      mode: tr(MODE_NAMES[selection.mode]),
+    }),
+    'sys',
+  );
+  hud?.log(tf(L('VESSEL ONLINE: оператор подключён', 'VESSEL ONLINE: operator linked'), {}), 'ok');
+
+  applyProfileVisuals();
+  tutorial?.stop();
+
+  if (!profile.tutorialDone && selection.mode === 'campaign') {
+    tutorial?.start();
+  }
 }
 
 function showEnd(won: boolean): void {
   if (endShown) return;
   endShown = true;
+  tutorial?.stop();
 
   const minutes = Math.floor(game.time / 60);
   const seconds = Math.floor(game.time % 60);
-  const endless = game.mode === 'endless';
+  const endless = game.mode === 'endless' || game.mode === 'rogue';
+  const reached = Math.max(1, game.stats.maxWave);
 
-  el('end-kicker').textContent = won
-    ? 'CONTAINMENT COMPLETE'
-    : endless
-      ? 'SIGNAL LOST: ENDLESS'
-      : 'CONTAINMENT FAILED';
-  el('end-title').textContent = won ? 'SIGNAL HELD' : 'SIGNAL LOST';
-  el('end-text').textContent = won
-    ? `${TOTAL_WAVES} волн. Ядро цело. Он снова остался один — но в этот раз ты не отступил.`
-    : endless
-      ? `Бесконечный протокол оборван на волне ${game.wave}. Дальше — только новый заход.`
-      : 'VESSEL потерял целостность. Он снова остался один. Протокол можно перезапустить.';
+  const runRecord = applyRun(profile, {
+    arena: map.def.id,
+    mode: game.mode,
+    difficulty: game.difficulty,
+    wave: won ? TOTAL_WAVES : reached,
+    kills: game.kills,
+    leaks: game.stats.leaks,
+    time: game.time,
+    integrity: game.integrity,
+    cappedIntegrity: game.integrityCap,
+    won,
+    killsByKind: { ...game.killsByKind },
+    towerBuilds: { ...game.towerBuilds },
+    branchIds: [...game.branchIds],
+    rewards: game.stats.rewards,
+    bossKills: game.stats.bossKills,
+    shieldBreaks: game.stats.shieldBreaks,
+    soldTowers: game.stats.soldTowers,
+    peakTowers: game.stats.peakTowers,
+    maxedTowers: game.stats.maxedTowers,
+    peakMoney: game.stats.peakMoney,
+    dataEarned: game.stats.dataEarned,
+    perfectWaves: game.stats.perfectWaves,
+  });
+
+  const unlocked = evaluateAchievements(profile);
+  saveProfile(profile);
+  archive?.refresh();
+  applyProfileVisuals();
+  updateBestLine();
+
+  lastEnd = { won, record: runRecord, unlocked };
 
   el('end-stats').innerHTML = `
     <div><label>WAVE</label><b>${game.wave.toString().padStart(2, '0')} / ${
@@ -185,20 +314,74 @@ function showEnd(won: boolean): void {
   `;
 
   endScreen.querySelector('.end-inner')?.classList.toggle('good', won);
+  renderEndContent();
   endScreen.hidden = false;
+  glitchScreen(endScreen);
   endlessBtn.hidden = endless;
 
-  const best = Number(localStorage.getItem(BEST_KEY) ?? '0');
-  const reached = won ? TOTAL_WAVES : Math.max(1, game.wave);
-  if (reached > best) localStorage.setItem(BEST_KEY, String(reached));
-
-  if (endless) {
-    const bestEndless = Number(localStorage.getItem(ENDLESS_KEY) ?? '0');
-    if (game.wave > bestEndless) localStorage.setItem(ENDLESS_KEY, String(game.wave));
+  if (unlocked.length > 0) {
+    for (const achievement of unlocked) {
+      toast(
+        tr(L('ДОСТИЖЕНИЕ', 'ACHIEVEMENT')),
+        tr(achievement.name),
+        tr(achievement.desc),
+      );
+    }
   }
 
   stopRain?.();
   stopRain = startGlyphRain(endGlyph);
+}
+
+function renderEndContent(): void {
+  if (!lastEnd) return;
+  const { won, record, unlocked } = lastEnd;
+  const endless = game.mode === 'endless' || game.mode === 'rogue';
+
+  el('end-kicker').textContent = won
+    ? 'CONTAINMENT COMPLETE'
+    : endless
+      ? 'SIGNAL LOST: ENDLESS'
+      : 'CONTAINMENT FAILED';
+  el('end-title').textContent = won ? 'SIGNAL HELD' : 'SIGNAL LOST';
+  el('end-text').textContent = won
+    ? tf(
+        L(
+          '{waves} волн. Ядро цело. Он снова остался один — но в этот раз ты не отступил.',
+          '{waves} waves. The core holds. It is alone again — but this time you did not retreat.',
+        ),
+        { waves: TOTAL_WAVES },
+      )
+    : endless
+      ? tf(
+          L(
+            'Протокол оборван на волне {wave}. Дальше — только новый заход.',
+            'The protocol ended on wave {wave}. Only a new run remains.',
+          ),
+          { wave: game.wave },
+        )
+      : tr(
+          L(
+            'VESSEL потерял целостность. Он снова остался один. Протокол можно перезапустить.',
+            'VESSEL lost integrity. It is alone again. The protocol can be restarted.',
+          ),
+        );
+
+  const recordNode = el('end-record');
+  recordNode.innerHTML = record
+    ? `<span>${tr(L('ЛУЧШИЙ ЗАБЕГ', 'BEST RUN'))}</span><b>W${record.wave
+        .toString()
+        .padStart(2, '0')}</b><em>${record.kills} ${tr(L('целей', 'kills'))} · ${formatTime(
+        record.time,
+      )}</em>`
+    : '';
+
+  const list = el('end-achievements');
+  list.innerHTML = unlocked.length
+    ? `<span>${tr(L('НОВЫЕ ДОСТИЖЕНИЯ', 'NEW ACHIEVEMENTS'))}</span>${unlocked
+        .map((item) => `<b>${tr(item.name)}</b>`)
+        .join('')}`
+    : '';
 }
 
 function resetRun(options: GameOptions): void {
@@ -209,6 +392,7 @@ function resetRun(options: GameOptions): void {
 
   endScreen.hidden = true;
   endShown = false;
+  lastEnd = null;
   topView = false;
   view.controls.minPolarAngle = 0.28;
   view.controls.maxPolarAngle = 1.22;
@@ -218,10 +402,16 @@ function resetRun(options: GameOptions): void {
   view.setIntegrity(100);
   createGame(map, options);
   ui.hidden = false;
+  bossShown = false;
+  document.body.classList.remove('boss-mode');
+  bossAlert.hidden = true;
+  tutorial?.stop();
 
   hud?.refresh(true);
-  hud?.log('PROTOCOL RESTART: сброс сектора');
-  hud?.log('VESSEL ONLINE: оператор подключён', 'ok');
+  hud?.log(tf(L('PROTOCOL RESTART: сброс сектора', 'PROTOCOL RESTART: sector reset'), {}));
+  hud?.log(tf(L('VESSEL ONLINE: оператор подключён', 'VESSEL ONLINE: operator linked'), {}), 'ok');
+
+  if (!profile.tutorialDone && options.mode === 'campaign') tutorial?.start();
 }
 
 function restart(): void {
@@ -230,18 +420,26 @@ function restart(): void {
 
 function startEndless(): void {
   resetRun(optionsFor('endless', game.difficulty));
-  hud?.log('ENDLESS PROTOCOL: волны не заканчиваются', 'warn');
+  hud?.log(
+    tf(L('ENDLESS PROTOCOL: волны не заканчиваются', 'ENDLESS PROTOCOL: the waves do not end'), {}),
+    'warn',
+  );
 }
 
 function showRewards(options: RewardDef[]): void {
   rewardCards.innerHTML = '';
+  rewardCards.dataset.count = String(options.length);
   for (const reward of options) {
     const card = document.createElement('button');
     card.type = 'button';
-    card.className = 'reward-card';
-    card.innerHTML = `<span class="reward-tag">${reward.tag}</span>
-      <b>${reward.name}</b>
-      <em>${reward.desc}</em>`;
+    card.className = `reward-card rarity-${reward.rarity}`;
+    card.innerHTML = `
+      <div class="reward-top">
+        <span class="reward-rarity">${tr(RARITY_NAMES[reward.rarity] ?? RARITY_NAMES.common)}</span>
+        <span class="reward-tag">${tr(reward.tag)}</span>
+      </div>
+      <b>${tr(reward.name)}</b>
+      <em>${tr(reward.desc)}</em>`;
     card.addEventListener('click', () => {
       game.applyReward(reward.id);
       rewardScreen.hidden = true;
@@ -250,6 +448,7 @@ function showRewards(options: RewardDef[]): void {
     rewardCards.appendChild(card);
   }
   rewardScreen.hidden = false;
+  glitchScreen(rewardScreen);
 }
 
 function toggleTopView(): void {
@@ -295,6 +494,7 @@ function buildSelectors(): void {
         box.querySelectorAll('.seg-btn').forEach((node) => node.classList.remove('on'));
         button.classList.add('on');
         onPick(item.id);
+        updateBestLine();
       });
       box.appendChild(button);
     }
@@ -302,7 +502,7 @@ function buildSelectors(): void {
 
   make(
     mapBox,
-    MAPS.map((item) => ({ id: item.id, name: item.name, title: item.sub })),
+    MAPS.map((item) => ({ id: item.id, name: item.name, title: tr(item.sub) })),
     selection.mapId,
     (id) => {
       selection.mapId = id;
@@ -315,21 +515,20 @@ function buildSelectors(): void {
 
   make(
     modeBox,
-    [
-      { id: 'campaign', name: 'КАМПАНИЯ', title: '15 волн' },
-      { id: 'endless', name: 'БЕСКОНЕЧНЫЙ', title: 'волны без конца' },
-      { id: 'rogue', name: 'ROGUE', title: 'модификаторы и награды' },
-    ],
+    (['campaign', 'endless', 'rogue'] as ModeId[]).map((id) => ({
+      id,
+      name: tr(MODE_NAMES[id]),
+      title: tr(MODE_HINTS[id]),
+    })),
     selection.mode,
     (id) => {
       selection.mode = id as ModeId;
-      selection.mapId = selection.mapId;
     },
   );
 
   make(
     diffBox,
-    DIFFICULTIES.map((item) => ({ id: item.id, name: item.name, title: item.sub })),
+    DIFFICULTIES.map((item) => ({ id: item.id, name: tr(item.name), title: tr(item.sub) })),
     selection.difficulty,
     (id) => {
       selection.difficulty = id as DifficultyId;
@@ -337,10 +536,74 @@ function buildSelectors(): void {
   );
 }
 
+function updateBestLine(): void {
+  const record = recordFor(profile, selection.mapId, selection.difficulty, selection.mode);
+  const node = el('best-record');
+
+  if (!record) {
+    node.textContent = tr(L('рекордов на этом сочетании пока нет', 'no record for this setup yet'));
+  } else {
+    node.innerHTML = `<span>${tr(L('ЛУЧШИЙ ЗАБЕГ', 'BEST RUN'))}</span><b>W${record.wave
+      .toString()
+      .padStart(2, '0')}</b><em>${record.kills} ${tr(L('целей', 'kills'))} · ${formatTime(
+      record.time,
+    )}</em>`;
+  }
+
+  el('best-wave').textContent =
+    profile.stats.bestWave > 0 ? `WAVE ${profile.stats.bestWave.toString().padStart(2, '0')}` : '—';
+}
+
+function applyProfileVisuals(): void {
+  applyAccent(profile);
+  const title = titleById(profile.title);
+  el('brand-title').textContent = tr(title.name);
+  document.body.dataset.accent = profile.accent;
+  document.querySelectorAll<HTMLElement>('#lang-switch [data-lang]').forEach((button) => {
+    button.classList.toggle('on', button.dataset.lang === initLangGet());
+  });
+  hud?.setSound(sound.enabled);
+}
+
+function initLangGet(): Lang {
+  return document.documentElement.lang === 'en' ? 'en' : 'ru';
+}
+
+function syncArchive(): void {
+  archive?.refresh();
+}
+
+function openArchive(): void {
+  archive?.open('achievements');
+  archive?.refresh();
+}
+
+function closeArchive(): void {
+  archive?.close();
+  updateBestLine();
+}
+
+function switchLang(lang: Lang): void {
+  setLang(lang);
+  saveProfileDebounced();
+  applyProfileVisuals();
+  buildSelectors();
+  updateBestLine();
+  hud?.refresh(true);
+  tutorial?.refresh();
+  syncArchive();
+  if (endShown) renderEndContent();
+}
+
 startBtn.addEventListener('click', startRun);
 restartBtn.addEventListener('click', restart);
 endlessBtn.addEventListener('click', startEndless);
 menuBtn.addEventListener('click', () => window.location.reload());
+archiveBtn.addEventListener('click', openArchive);
+
+document.querySelectorAll<HTMLButtonElement>('#lang-switch [data-lang]').forEach((button) => {
+  button.addEventListener('click', () => switchLang(button.dataset.lang === 'en' ? 'en' : 'ru'));
+});
 
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -363,7 +626,7 @@ function updateHover(cell: Cell | null): void {
   hover = cell;
   game.setHover(cell);
 
-  if (!cell || titleScreen.hidden === false || endShown) {
+  if (!cell || titleScreen.hidden === false || endShown || archive?.isOpen) {
     highlight.hide();
     return;
   }
@@ -398,7 +661,7 @@ canvas.addEventListener('pointerup', (event) => {
 
   const travelled = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
   if (travelled > 7) return;
-  if (!titleScreen.hidden || endShown) return;
+  if (!titleScreen.hidden || endShown || archive?.isOpen) return;
 
   const cell = pick(event.clientX, event.clientY);
   if (!cell) {
@@ -432,6 +695,11 @@ canvas.addEventListener('pointerleave', () => {
 });
 
 window.addEventListener('keydown', (event) => {
+  if (archive?.isOpen) {
+    if (event.code === 'Escape') closeArchive();
+    return;
+  }
+
   if (!titleScreen.hidden) {
     if (event.code === 'Enter' || event.code === 'Space') {
       event.preventDefault();
@@ -463,6 +731,7 @@ window.addEventListener('keydown', (event) => {
       sound.init();
       game.setKind(game.selectedKind === kind ? null : kind);
       updateHover(hover);
+      tutorial?.update();
     }
     return;
   }
@@ -499,10 +768,28 @@ window.addEventListener('keydown', (event) => {
 
 buildSelectors();
 createGame(map, optionsFor(selection.mode, selection.difficulty));
-stopRain = startGlyphRain(titleGlyph);
 
-const best = Number(localStorage.getItem(BEST_KEY) ?? '0');
-if (best > 0) el('best-wave').textContent = `WAVE ${best.toString().padStart(2, '0')}`;
+archive = new Archive(profile, () => {
+  saveProfileDebounced();
+  applyProfileVisuals();
+}, closeArchive);
+
+tutorial = new Tutorial(
+  () => game,
+  () => {
+    profile.tutorialDone = true;
+    saveProfileDebounced();
+    toast(
+      tr(L('ОБУЧЕНИЕ', 'TUTORIAL')),
+      tr(L('ОПЕРАТОР ГОТОВ', 'OPERATOR READY')),
+      tr(L('Подсказки больше не появятся.', 'Hints will not appear again.')),
+    );
+  },
+);
+
+stopRain = startGlyphRain(titleGlyph);
+updateBestLine();
+applyProfileVisuals();
 
 window.setInterval(() => {
   const total = Math.floor(performance.now() / 1000);
@@ -528,13 +815,43 @@ function frame(): void {
     }
   }
 
-  const bossAlive = game.enemies.some((enemy) => enemy.kind === 'face');
+  const bossAlive = game.bossActive;
+  updateBossPresentation(bossAlive);
+
   sound.setIntensity(game.phase === 'wave' ? (bossAlive ? 1 : 0.75) : 0.3);
 
   view.setIntegrity(game.integrity);
   hud?.refresh();
   view.render(dt);
   requestAnimationFrame(frame);
+}
+
+function updateBossPresentation(alive: boolean): void {
+  if (alive && !bossShown) {
+    bossShown = true;
+    document.body.classList.add('boss-mode');
+    bossAlert.hidden = false;
+    bossAlert.classList.remove('ping');
+    void bossAlert.offsetWidth;
+    bossAlert.classList.add('ping');
+    window.clearTimeout(bossTimer);
+    bossTimer = window.setTimeout(() => {
+      bossAlert.hidden = true;
+    }, 3600);
+    view.effects.addShake(0.3);
+  }
+
+  if (!alive && bossShown) {
+    bossShown = false;
+    document.body.classList.remove('boss-mode');
+    bossAlert.hidden = true;
+  }
+}
+
+function formatTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.floor(seconds % 60);
+  return `${minutes.toString().padStart(2, '0')}:${rest.toString().padStart(2, '0')}`;
 }
 
 requestAnimationFrame(frame);
@@ -549,10 +866,14 @@ Object.defineProperty(window, '__neotd', {
     },
     view,
     selection,
+    profile,
+    archive,
+    tutorial,
     start: startRun,
     restart,
     end: showEnd,
     toggleTopView,
+    setLang: switchLang,
     advance(seconds: number) {
       let remaining = seconds;
       while (remaining > 0) {
@@ -561,6 +882,8 @@ Object.defineProperty(window, '__neotd', {
         remaining -= step;
       }
       hud?.refresh(true);
+      tutorial?.update();
     },
   },
 });
+

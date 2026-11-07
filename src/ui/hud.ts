@@ -1,10 +1,12 @@
+import { L, tf, tr } from '../i18n';
 import {
   BRANCHES,
   ENEMY_DEFS,
   TOWER_BRANCHES,
   TOWER_DEFS,
   TOWER_ORDER,
-  upgradeCost,
+  damageAt,
+  rangeAt,
 } from '../game/constants';
 import type { Game } from '../game/game';
 import type { BranchId, EnemyKind, LogKind, TargetPriority, TowerKind } from '../game/types';
@@ -25,11 +27,11 @@ export interface HudActions {
   selectKind(kind: TowerKind): void;
 }
 
-const PRIORITIES: Array<{ id: TargetPriority; label: string; title: string }> = [
-  { id: 'first', label: '1st', title: 'ближайший к ядру' },
-  { id: 'last', label: 'last', title: 'самый дальний' },
-  { id: 'strong', label: 'HP+', title: 'самый прочный' },
-  { id: 'weak', label: 'HP−', title: 'самый слабый' },
+const PRIORITIES: Array<{ id: TargetPriority; label: string; title: ReturnType<typeof L> }> = [
+  { id: 'first', label: '1st', title: L('ближайший к ядру', 'closest to the core') },
+  { id: 'last', label: 'last', title: L('самый дальний', 'furthest back') },
+  { id: 'strong', label: 'HP+', title: L('самый прочный', 'toughest') },
+  { id: 'weak', label: 'HP−', title: L('самый слабый', 'weakest') },
 ];
 
 function el<T extends HTMLElement>(id: string): T {
@@ -84,7 +86,9 @@ export class Hud {
       if (action === 'sell') this.actions.sell();
       if (action === 'move') this.actions.move();
       if (action === 'branch') this.actions.chooseBranch(target.dataset.branch as BranchId);
-      if (action === 'priority') this.actions.setPriority(target.dataset.priority as TargetPriority);
+      if (action === 'priority') {
+        this.actions.setPriority(target.dataset.priority as TargetPriority);
+      }
       if (action === 'mass-upgrade') this.actions.massUpgrade(target.dataset.kind as TowerKind);
       if (action === 'mass-sell') this.handleMassSell(target.dataset.kind as TowerKind);
     };
@@ -107,8 +111,8 @@ export class Hud {
         <span class="tc-key">${index + 1}</span>
         <span class="tc-sigil">${def.sigil}</span>
         <span class="tc-name">${def.name}</span>
-        <span class="tc-role">${def.role}</span>
-        <span class="tc-cost">${def.cost}</span>
+        <span class="tc-role">${tr(def.role)}</span>
+        <span class="tc-cost">${this.game.towerCost(kind)}</span>
       `;
       card.onclick = () => this.actions.selectKind(kind);
       list.appendChild(card);
@@ -147,6 +151,12 @@ export class Hud {
     this.viewBtn.textContent = active ? 'ORBIT' : 'TOP';
   }
 
+  alarm(): void {
+    document.body.classList.add('alarm');
+    window.clearTimeout(this.armTimer);
+    this.armTimer = window.setTimeout(() => document.body.classList.remove('alarm'), 700);
+  }
+
   refresh(force = false): void {
     const game = this.game;
     const total = game.totalWaves;
@@ -159,7 +169,7 @@ export class Hud {
 
     this.integrity.textContent = `${Math.ceil(game.integrity)}%`;
     this.integrityBar.style.width = `${Math.min(100, Math.max(0, game.integrity))}%`;
-    this.integrityBar.classList.toggle('low', game.integrity <= 40);
+    this.integrityBar.classList.toggle('low', game.integrity <= game.integrityCap * 0.4);
 
     const waveDef = game.nextWave;
     const boss = waveDef.some((group) => group.kind === 'face');
@@ -176,18 +186,24 @@ export class Hud {
         ? `+${game.earlyBonus} DATA`
         : 'READY'
       : fighting
-        ? `${game.waveRemaining} LEFT`
+        ? `${game.waveRemaining} ${tr(L('ОСТАЛОСЬ', 'LEFT'))}`
         : game.pendingRewards.length > 0
-          ? 'REWARD'
-          : 'LOCKED';
+          ? tr(L('МОДУЛЬ', 'REWARD'))
+          : tr(L('ЗАКРЫТО', 'LOCKED'));
 
     const early = game.earlyBonus;
     this.waveMeta.textContent = canStart
       ? early > 0
-        ? `досрочный запуск +${early} DATA · ${game.prepRemaining}s`
-        : `волна ${game.wave}${Number.isFinite(total) ? ` из ${total}` : ''}`
+        ? tf(L('досрочный запуск +{bonus} DATA · {sec}s', 'early launch +{bonus} DATA · {sec}s'), {
+            bonus: early,
+            sec: game.prepRemaining,
+          })
+        : tf(L('волна {wave} из {total}', 'wave {wave} of {total}'), {
+            wave: game.wave,
+            total: Number.isFinite(total) ? total : '∞',
+          })
       : fighting
-        ? `осталось ${game.waveRemaining} целей`
+        ? tf(L('осталось {count} целей', '{count} targets left'), { count: game.waveRemaining })
         : '';
 
     this.waveProgress.style.width = `${Math.round(game.waveProgress * 100)}%`;
@@ -197,8 +213,11 @@ export class Hud {
     for (const kind of TOWER_ORDER) {
       const card = this.cards.get(kind);
       if (!card) continue;
+      const cost = this.game.towerCost(kind);
       card.classList.toggle('selected', game.selectedKind === kind);
-      card.classList.toggle('disabled', game.money < TOWER_DEFS[kind].cost);
+      card.classList.toggle('disabled', game.money < cost);
+      const label = card.querySelector('.tc-cost');
+      if (label) label.textContent = String(cost);
     }
 
     const selected = game.selected;
@@ -208,7 +227,7 @@ export class Hud {
         )}-${this.armedSellAll}`
       : `wave-${game.wave}-${game.phase}-${game.waveMods.map((mod) => mod.id).join('.')}-${
           game.pendingRewards.length
-        }-${game.mode}`;
+        }-${game.mode}-${game.integrityCap}`;
 
     if (force || key !== this.inspectorKey) {
       this.inspectorKey = key;
@@ -254,7 +273,9 @@ export class Hud {
     this.inspectTag.textContent = game.phase === 'wave' ? 'LIVE' : 'NEXT';
 
     if (game.phase === 'won' || game.phase === 'lost') {
-      this.inspectBody.innerHTML = '<div class="insp-empty">Сектор закрыт. Протокол завершён.</div>';
+      this.inspectBody.innerHTML = `<div class="insp-empty">${tr(
+        L('Сектор закрыт. Протокол завершён.', 'Sector sealed. Protocol complete.'),
+      )}</div>`;
       return;
     }
 
@@ -263,7 +284,7 @@ export class Hud {
         const def = ENEMY_DEFS[kind];
         const hp = Math.round(def.hp);
         const armor = Math.round(def.armor * 100);
-        const tags = (def.tags ?? []).join(' · ');
+        const tags = (def.tags ?? []).map((tag) => tr(tag)).join(' · ');
         return `<div class="wave-block ${kind === 'face' ? 'boss' : ''}">
           <div class="wave-row">
             <span class="sigil">${def.sigil}</span>
@@ -279,20 +300,50 @@ export class Hud {
 
     const mods = game.waveMods.length
       ? `<div class="wave-mods">${game.waveMods
-          .map((mod) => `<b>${mod.name}</b> ${mod.desc}`)
+          .map((mod) => `<b>${tr(mod.name)}</b> ${tr(mod.desc)}`)
           .join('<br />')}</div>`
       : '';
 
+    const routes = game.map.routeCount;
+    const routeNote =
+      routes > 1
+        ? `<div class="wave-routes">${tf(
+            L('ВХОДОВ: {count} — оборона делится между маршрутами', 'ENTRANCES: {count} — defence must be split'),
+            { count: routes },
+          )}</div>`
+        : '';
+
     const note = counts.has('face')
-      ? 'THE FACE: щит, ярость после разбития и свита. Держи бронебой и замедление.'
+      ? tr(
+          L(
+            'THE FACE: щит, ярость после разбития и свита. Держи бронебой и замедление.',
+            'THE FACE: shield, rage after it breaks, and an escort. Bring armour pierce and slows.',
+          ),
+        )
       : counts.has('flyer')
-        ? 'WISP летит напрямую к ядру и срезает маршрут — прикрой прямую.'
+        ? tr(
+            L(
+              'WISP летит напрямую к ядру и срезает маршрут — прикрой прямую.',
+              'WISP flies straight at the core and cuts the route — cover the direct line.',
+            ),
+          )
         : counts.has('phantom')
-          ? 'PHANTOM исчезает на несколько секунд. Поля SNARE всё равно его достают.'
-          : 'Площадь, контроль и бронебой решают больше, чем одна сильная башня.';
+          ? tr(
+              L(
+                'PHANTOM исчезает на несколько секунд. Поля SNARE всё равно его достают.',
+                'PHANTOM fades for a few seconds. SNARE fields still reach it.',
+              ),
+            )
+          : tr(
+              L(
+                'Площадь, контроль и бронебой решают больше, чем одна сильная башня.',
+                'Area, control and armour pierce matter more than one strong tower.',
+              ),
+            );
 
     this.inspectBody.innerHTML = `
       ${mods}
+      ${routeNote}
       ${rows}
       <div class="wave-note">${note}</div>
     `;
@@ -303,9 +354,9 @@ export class Hud {
     const def = TOWER_DEFS[tower.kind];
     const stats = game.statsFor(tower);
     const maxed = tower.level >= 3;
-    const cost = upgradeCost(def.cost, tower.level);
-    const branchCost = Math.round(def.cost * 1.2);
-    const refund = Math.floor(tower.spent * 0.65);
+    const cost = game.upgradeCostFor(tower);
+    const branchCost = game.branchCostFor(tower);
+    const refund = game.refundFor(tower);
     const branch = tower.branch ? BRANCHES[tower.branch] : null;
     const options = TOWER_BRANCHES[tower.kind];
 
@@ -313,7 +364,9 @@ export class Hud {
     this.inspectTag.textContent = `LVL ${tower.level}`;
 
     const branchRows = branch
-      ? `<div class="insp-branch"><b>${branch.name}</b><span>${branch.role}</span></div>`
+      ? `<div class="insp-branch"><b>${branch.name}</b><span>${tr(branch.role)}</span><p>${tr(
+          branch.desc,
+        )}</p></div>`
       : '';
 
     const special = def.splash
@@ -322,10 +375,15 @@ export class Hud {
         ? `<div><span>SLOW</span><b>${Math.round(stats.slow * 100)}%</b></div>`
         : '';
 
+    const nextDamage = maxed ? stats.damage : damageAt(def.damage, tower.level + 1);
+    const nextRange = maxed ? stats.range : rangeAt(def.range, tower.level + 1);
+
     const branchPicker =
       maxed && !tower.branch
         ? `<div class="branch-pick">
-            <div class="branch-head">ВЕТКА ТРЕТЬЕГО УРОВНЯ <em>${branchCost} DATA</em></div>
+            <div class="branch-head">${tr(
+              L('ВЕТКА ТРЕТЬЕГО УРОВНЯ', 'LEVEL THREE BRANCH'),
+            )} <em>${branchCost} DATA</em></div>
             ${options
               .map((id) => {
                 const info = BRANCHES[id];
@@ -333,8 +391,8 @@ export class Hud {
                   game.money < branchCost ? 'disabled' : ''
                 }>
                   <b>${info.name}</b>
-                  <em>${info.role}</em>
-                  <span>${info.desc}</span>
+                  <em>${tr(info.role)}</em>
+                  <span>${tr(info.desc)}</span>
                 </button>`;
               })
               .join('')}
@@ -343,13 +401,13 @@ export class Hud {
 
     const priorityRow = `
       <div class="priority">
-        <span>ЦЕЛИ</span>
+        <span>${tr(L('ЦЕЛИ', 'TARGETS'))}</span>
         <div>
           ${PRIORITIES.map(
             (item) =>
-              `<button data-action="priority" data-priority="${item.id}" title="${item.title}" class="${
-                tower.priority === item.id ? 'on' : ''
-              }">${item.label}</button>`,
+              `<button data-action="priority" data-priority="${item.id}" title="${tr(
+                item.title,
+              )}" class="${tower.priority === item.id ? 'on' : ''}">${item.label}</button>`,
           ).join('')}
         </div>
       </div>
@@ -361,15 +419,22 @@ export class Hud {
 
     this.inspectBody.innerHTML = `
       <div class="insp-name">${def.name}<em>LVL ${tower.level} / 3</em></div>
-      <div class="lvl-dots">${[1, 2, 3].map((n) => `<i class="${n <= tower.level ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="lvl-dots">${[1, 2, 3]
+        .map((n) => `<i class="${n <= tower.level ? 'on' : ''}"></i>`)
+        .join('')}</div>
       ${branchRows}
       <div class="insp-rows">
-        <div><span>DAMAGE</span><b>${stats.damage.toFixed(1)}</b></div>
-        <div><span>RANGE</span><b>${stats.range.toFixed(1)}</b></div>
+        <div><span>DAMAGE</span><b>${stats.damage.toFixed(1)}${
+          maxed ? '' : ` <em>→ ${nextDamage.toFixed(1)}</em>`
+        }</b></div>
+        <div><span>RANGE</span><b>${stats.range.toFixed(1)}${
+          maxed ? '' : ` <em>→ ${nextRange.toFixed(1)}</em>`
+        }</b></div>
         <div><span>RATE</span><b>${(1 / stats.cooldown).toFixed(2)}/s</b></div>
         ${special}
         ${stats.armorPierce > 0 ? `<div><span>ARMOR PIERCE</span><b>${Math.round(stats.armorPierce * 100)}%</b></div>` : ''}
       </div>
+      <div class="insp-note">${tr(def.desc)}</div>
       ${priorityRow}
       ${branchPicker}
       <div class="insp-actions">
@@ -377,17 +442,22 @@ export class Hud {
           <span>${maxed ? 'MAX LEVEL' : 'UPGRADE'}</span>
           <em>${maxed ? '—' : `${cost} DATA`}</em>
         </button>
-        <button class="ghost" data-action="move"><span>ПЕРЕМЕСТИТЬ</span><em>бесплатно</em></button>
+        <button class="ghost" data-action="move"><span>${tr(
+          L('ПЕРЕМЕСТИТЬ', 'MOVE'),
+        )}</span><em>${tr(L('бесплатно', 'free'))}</em></button>
         <button class="ghost" data-action="sell"><span>SELL</span><em>+${refund} DATA</em></button>
       </div>
       <div class="mass-actions">
         <button data-action="mass-upgrade" data-kind="${tower.kind}" ${
           upgradable === 0 ? 'disabled' : ''
-        }>ВСЕ ${def.name} → LVL <em>×${upgradable}</em></button>
-        <button data-action="mass-sell" data-kind="${tower.kind}" class="danger ${armed ? 'armed' : ''}" ${
-          sameKind.length === 0 ? 'disabled' : ''
-        }>${armed ? 'ТОЧНО ПРОДАТЬ?' : `ПРОДАТЬ ВСЕ ×${sameKind.length}`}</button>
+        }>${tr(L('ВСЕ', 'ALL'))} ${def.name} → LVL <em>×${upgradable}</em></button>
+        <button data-action="mass-sell" data-kind="${tower.kind}" class="danger ${
+          armed ? 'armed' : ''
+        }" ${sameKind.length === 0 ? 'disabled' : ''}>${
+          armed ? tr(L('ТОЧНО ПРОДАТЬ?', 'SELL FOR SURE?')) : `${tr(L('ПРОДАТЬ ВСЕ', 'SELL ALL'))} ×${sameKind.length}`
+        }</button>
       </div>
     `;
   }
 }
+
